@@ -306,9 +306,9 @@ async fn run(client: reqwest::Client, spec: DownloadSpec, shared: Arc<Shared>) {
                 return;
             }
             Err(error @ (DownloadError::Expired | DownloadError::Invalid(_))) => {
-                if let DownloadError::Invalid(_) = &error {
-                    log::info!("youtube download: {error}");
-                }
+                // where it was refused tells a dead address (at 0) from a stream cut off part-way (a PO token or
+                // throttling problem)
+                log::info!("youtube download: {error} at byte {offset} of {:?}", spec.content_length);
                 shared.update(|state| state.error = Some(error));
                 return;
             }
