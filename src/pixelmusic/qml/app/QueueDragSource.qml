@@ -6,6 +6,8 @@ import Md3
 // трек берут из drop.source.trackData() (source — строка с trackData()).
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property Item source
     property string title
@@ -60,7 +62,7 @@ Item {
                 width: chipRow.implicitWidth + 20
                 height: 48
                 radius: 24
-                color: Theme.surfaceContainerHighest
+                color: root.scheme.surfaceContainerHighest
                 Row {
                     id: chipRow
                     x: 8
@@ -78,7 +80,7 @@ Item {
                         elide: Text.ElideRight
                         text: root.title
                         type: "labelLarge"
-                        color: Theme.fgSurface
+                        color: root.scheme.fgSurface
                     }
                 }
             }

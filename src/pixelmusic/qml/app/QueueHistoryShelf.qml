@@ -8,6 +8,8 @@ import PixelMusic.Core
 // "Replay queue" + delete. QueueHistory (bridge) keeps them in queue_history.json.
 ColumnLayout {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
     visible: QueueHistory.count > 0
     spacing: 12
 
@@ -21,7 +23,7 @@ ColumnLayout {
             Label {
                 text: I18n.n(QueueHistory.count, "{0} saved queue", "{0} saved queues")
                 type: "bodyMedium"
-                color: Theme.fgSurfaceVariant
+                color: root.scheme.fgSurfaceVariant
             }
         }
         Item { Layout.fillWidth: true }
@@ -56,7 +58,7 @@ ColumnLayout {
             width: Math.min(340, list.width - 24)
             height: list.height
             radius: 28
-            color: Theme.surfaceContainer
+            color: root.scheme.surfaceContainer
 
             ColumnLayout {
                 anchors.fill: parent
@@ -73,7 +75,7 @@ ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: 20
-                        color: Theme.primaryContainer
+                        color: root.scheme.primaryContainer
                         ColumnLayout {
                             anchors.fill: parent
                             anchors.margins: 16
@@ -82,13 +84,13 @@ ColumnLayout {
                                 Layout.preferredWidth: 36
                                 Layout.preferredHeight: 36
                                 shape: "cookie9"
-                                color: Qt.alpha(Theme.fgPrimaryContainer, 0.16)
+                                color: Qt.alpha(root.scheme.fgPrimaryContainer, 0.16)
                                 Icon {
                                     anchors.centerIn: parent
                                     name: "queue_music"
                                     size: 20
                                     fill: 1
-                                    color: Theme.fgPrimaryContainer
+                                    color: root.scheme.fgPrimaryContainer
                                 }
                             }
                             Item { Layout.fillHeight: true }
@@ -96,13 +98,13 @@ ColumnLayout {
                                 text: card.modelData.count ?? 0
                                 type: "displayMedium"
                                 weight: 700
-                                color: Theme.fgPrimaryContainer
+                                color: root.scheme.fgPrimaryContainer
                             }
                             Label {
                                 text: I18n.n(card.modelData.count ?? 0, "track", "tracks")
                                 type: "titleMedium"
                                 weight: 600
-                                color: Theme.fgPrimaryContainer
+                                color: root.scheme.fgPrimaryContainer
                             }
                         }
                     }
@@ -111,7 +113,7 @@ ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: 20
-                        color: Theme.surfaceContainerHighest
+                        color: root.scheme.surfaceContainerHighest
                         Repeater {
                             model: card.covers.slice().reverse()
                             MorphImage {
@@ -143,7 +145,7 @@ ColumnLayout {
                     Layout.leftMargin: 8
                     text: I18n.t("Starts with")
                     type: "labelLarge"
-                    color: Theme.fgSurfaceVariant
+                    color: root.scheme.fgSurfaceVariant
                 }
                 Label {
                     Layout.fillWidth: true
@@ -160,7 +162,7 @@ ColumnLayout {
                     Layout.rightMargin: 8
                     text: card.first.artists ?? ""
                     type: "bodyMedium"
-                    color: Theme.fgSurfaceVariant
+                    color: root.scheme.fgSurfaceVariant
                     elide: Text.ElideRight
                 }
                 RowLayout {
@@ -171,14 +173,14 @@ ColumnLayout {
                     Label {
                         text: I18n.relative(new Date(card.modelData.savedAt ?? 0))
                         type: "bodyMedium"
-                        color: Theme.fgSurfaceVariant
+                        color: root.scheme.fgSurfaceVariant
                     }
                     Label {
                         visible: (card.modelData.title ?? "") !== ""
                         Layout.fillWidth: true
                         text: "· " + (card.modelData.title ?? "")
                         type: "bodyMedium"
-                        color: Theme.fgSurfaceVariant
+                        color: root.scheme.fgSurfaceVariant
                         elide: Text.ElideRight
                     }
                 }

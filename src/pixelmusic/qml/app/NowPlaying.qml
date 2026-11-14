@@ -171,7 +171,9 @@ Item {
             anchors.fill: parent
             color: PlayerTheme.primaryContainer
             visible: Settings.backdropMode !== "gauss"
-            opacity: ({ gauss: 0.66, glass: 0.58, palette: 0.4, blobs: 0.5 })[Settings.backdropMode] ?? 0.66
+            // thick enough that the title and controls (onPrimaryContainer) read as well as on Soft's solid sheet:
+            // the cover / blobs at 40–58 % mottled the text colour; the texture still shows through
+            opacity: ({ gauss: 0.66, glass: 0.8, palette: 0.66, blobs: 0.76 })[Settings.backdropMode] ?? 0.8
             Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
         }
 
@@ -453,6 +455,8 @@ Item {
                         style: checked ? "filled" : "standard"
                         iconFill: 1
                         id: shuffleBtn
+                        // PixelPlayer: off — onPrimary at 45 % with a primary icon; on — primary / onPrimary ("filled")
+                        containerColor: enabled && !checked ? PlayerTheme.toggleIdleContainer : shuffleBtn._styleContainer
                         iconColor: enabled && !checked ? PlayerTheme.toggleIdle : shuffleBtn._contentColor
                         onClicked: {
                             if (Player.isEpisode)
@@ -467,7 +471,7 @@ Item {
                         playing: Player.playing
                         loading: Player.buffering
                         spin: Player.isLocal === true
-                        // PixelPlayer: the fixed tertiary pair (a shade deeper in light mode, see PlayerTheme.playContainer)
+                        // PixelPlayer: primary with an onPrimary icon (PlayerTheme.playButtonContainer)
                         containerColor: PlayerTheme.playButtonContainer
                         iconColor: PlayerTheme.playButtonIcon
                         onClicked: Player.togglePlay()
@@ -479,6 +483,7 @@ Item {
                         style: checked ? "filled" : "standard"
                         iconFill: 1
                         id: repeatBtn
+                        containerColor: enabled && !checked ? PlayerTheme.toggleIdleContainer : repeatBtn._styleContainer
                         iconColor: enabled && !checked ? PlayerTheme.toggleIdle : repeatBtn._contentColor
                         onClicked: Player.isEpisode ? Player.seekRelative(30000) : Player.cycleRepeat()
                     }
@@ -605,7 +610,9 @@ Item {
                         anchors.fill: parent
                         asynchronous: true
                         active: queueTab.shown > 0.001 || root._tabsWarmed
-                        sourceComponent: QueueView { anchors.fill: parent; compact: true }
+                        // the queue inside the full player takes the player's (cover) colours; the side panel's
+                        // queue keeps the app theme (QueueView's default)
+                        sourceComponent: QueueView { anchors.fill: parent; compact: true; scheme: PlayerTheme }
                     }
                 }
 

@@ -147,8 +147,13 @@ QtObject {
     readonly property color primary: _c("primary")
     readonly property color primaryDim: _c("primaryDim")
     readonly property color fgPrimary: _c("fgPrimary")
-    readonly property color primaryContainer: _c("primaryContainer")
-    readonly property color fgPrimaryContainer: _c("fgPrimaryContainer")
+    // The player's sheet is primaryContainer. The 2025 Expressive spec puts the dark primaryContainer at the most
+    // chromatic tone in 30..93, often a pastel — a bright player in dark mode. PixelPlayer's sheet is tone 30 in dark
+    // mode: when the dark container comes out light, use the same pair from the fixed roles (onPrimaryFixedVariant
+    // is tone 30, primaryFixed tone 90).
+    readonly property bool _brightDarkSheet: dark && Mix.toLab(_c("primaryContainer"))[0] > 0.6
+    readonly property color primaryContainer: _brightDarkSheet ? _c("fgPrimaryFixedVariant") : _c("primaryContainer")
+    readonly property color fgPrimaryContainer: _brightDarkSheet ? _c("primaryFixed") : _c("fgPrimaryContainer")
     readonly property color inversePrimary: _c("inversePrimary")
     readonly property color primaryFixed: _c("primaryFixed")
     readonly property color primaryFixedDim: _c("primaryFixedDim")
@@ -186,11 +191,12 @@ QtObject {
     // the players' play/pause, as Theme.playContainer
     readonly property color playContainer: dark ? tertiaryFixedDim : Qt.darker(tertiaryFixedDim, 1.08)
 
-    // Light mode transport (mini and full player): onPrimary pills with a primary icon around a solid primary
-    // play button; dark mode keeps primary pills around the tertiary-fixed play button
-    readonly property string transportStyle: dark ? "accent" : "accentSoft"
-    readonly property color playButtonContainer: dark ? playContainer : primary
-    readonly property color playButtonIcon: dark ? fgTertiaryFixed : fgPrimary
-    // shuffle / repeat when off: a deeper tone of the sheet's own colour in light mode (onSurfaceVariant greys out)
-    readonly property color toggleIdle: dark ? fgSurfaceVariant : primary
+    // Transport, as PixelPlayer Desktop's PlaybackControlsRow (the same roles in light and dark mode; the tones
+    // flip with the scheme): previous / next — onPrimary circles with a primary icon; play / pause — primary with
+    // an onPrimary icon; shuffle / repeat — on: primary / onPrimary, off: onPrimary at 45 % with a primary icon
+    readonly property string transportStyle: "accentSoft"
+    readonly property color playButtonContainer: primary
+    readonly property color playButtonIcon: fgPrimary
+    readonly property color toggleIdle: primary
+    readonly property color toggleIdleContainer: Qt.alpha(fgPrimary, 0.45)
 }

@@ -10,6 +10,8 @@ import PixelMusic.Core
 // has scrolled away, and the shuffle button's start corner tightens to meet it.
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property int count: 0
     property bool locateShown: false
@@ -25,6 +27,7 @@ Item {
     // with a faded icon (the container stays solid so the group keeps its shape)
     component SegButton: Item {
         id: seg
+        property var scheme: Theme
         property string icon
         property bool on: false
         property real startRadius: 4
@@ -39,7 +42,7 @@ Item {
             bottomLeftRadius: seg.startRadius
             topRightRadius: seg.endRadius
             bottomRightRadius: seg.endRadius
-            color: seg.on && seg.enabled ? Theme.primary : Theme.secondaryContainer
+            color: seg.on && seg.enabled ? seg.scheme.primary : seg.scheme.secondaryContainer
             Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
         }
         Icon {
@@ -48,8 +51,8 @@ Item {
             size: 20
             fill: 1
             weight: 600
-            color: !seg.enabled ? Qt.alpha(Theme.fgSecondaryContainer, 0.38)
-                 : seg.on ? Theme.fgPrimary : Theme.fgSecondaryContainer
+            color: !seg.enabled ? Qt.alpha(seg.scheme.fgSecondaryContainer, 0.38)
+                 : seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSecondaryContainer
             Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
         }
         StateLayer {
@@ -59,7 +62,7 @@ Item {
             bottomLeftRadius: seg.startRadius
             topRightRadius: seg.endRadius
             bottomRightRadius: seg.endRadius
-            color: seg.on ? Theme.fgPrimary : Theme.fgSecondaryContainer
+            color: seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSecondaryContainer
             onClicked: seg.clicked()
         }
     }
@@ -72,8 +75,8 @@ Item {
             Layout.preferredWidth: 34
             Layout.preferredHeight: 34
             radius: 17
-            color: Theme.primaryContainer
-            Icon { anchors.centerIn: parent; name: "queue_music"; size: 18; color: Theme.fgPrimaryContainer }
+            color: root.scheme.primaryContainer
+            Icon { anchors.centerIn: parent; name: "queue_music"; size: 18; color: root.scheme.fgPrimaryContainer }
         }
         ColumnLayout {
             Layout.fillWidth: true
@@ -83,12 +86,13 @@ Item {
                 text: I18n.t("Next Up")
                 type: "titleMedium"
                 weight: 700
+                color: root.scheme.fgSurface
             }
             Label {
                 Layout.fillWidth: true
                 text: I18n.n(root.count, "{0} song", "{0} songs")
                 type: "labelSmall"
-                color: Qt.alpha(Theme.fgSurfaceVariant, 0.7)
+                color: Qt.alpha(root.scheme.fgSurfaceVariant, 0.7)
             }
         }
         Row {
@@ -98,7 +102,7 @@ Item {
                 height: 36
                 clip: true
                 Behavior on width { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
-                SegButton {
+                SegButton { scheme: root.scheme;
                     x: root.locateShown ? 0 : 20
                     opacity: root.locateShown ? 1 : 0
                     Behavior on x { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
@@ -108,20 +112,20 @@ Item {
                     onClicked: root.locate()
                 }
             }
-            SegButton {
+            SegButton { scheme: root.scheme;
                 icon: "shuffle"
                 on: Player.shuffle
                 startRadius: root.locateShown ? 4 : 26
                 enabled: Player.hasTrack && Player.source !== "radio"
                 onClicked: Player.shuffle = !Player.shuffle
             }
-            SegButton {
+            SegButton { scheme: root.scheme;
                 icon: Player.repeat === "one" ? "repeat_one" : "repeat"
                 on: Player.repeat !== "off"
                 enabled: Player.hasTrack
                 onClicked: Player.cycleRepeat()
             }
-            SegButton {
+            SegButton { scheme: root.scheme;
                 icon: "delete_sweep"
                 endRadius: 26
                 enabled: root.canClear

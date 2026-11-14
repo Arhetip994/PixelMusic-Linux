@@ -8,6 +8,8 @@ import PixelMusic.Core
 // Занимает родителя; используется в RightPanel и во вкладке очереди NowPlaying.
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property bool compact: false
 
@@ -277,7 +279,7 @@ Item {
         width: parent.width
         spacing: 0
 
-        QueueHeader {
+        QueueHeader { scheme: root.scheme;
             width: parent.width
             count: root.count
             locateShown: root._currentOutOfView
@@ -303,7 +305,7 @@ Item {
         Item {
             width: parent.width
             height: ctxCard.visible ? ctxCard.height + 4 : 0
-            QueueContextCard {
+            QueueContextCard { scheme: root.scheme;
                 id: ctxCard
                 width: parent.width
                 visible: root.count > 0 && (Player.queueContext.uri ?? "") !== ""
@@ -324,7 +326,10 @@ Item {
         model: root.queue
         boundsBehavior: Flickable.StopAtBounds
         acceptedButtons: Qt.NoButton
-        cacheBuffer: 400
+        // While a card is held the whole section stays built: ListView culls a delegate by its layout slot, not by
+        // the held card's offset, so dragging far down (with the edge auto-scroll) destroyed the lifted row — the card
+        // vanished and its slot stayed open as an empty gap.
+        cacheBuffer: root.dragFrom >= 0 ? Math.max(400, (root.dragRows + 2) * (root.rowHeight + 48)) : 400
         // без reuseItems: замер на живой очереди показал регрессию — при частых диффах плеера
         // переклейка данных на переиспользуемые делегаты дороже обновления биндингов на месте
 
@@ -358,6 +363,9 @@ Item {
             height: hidden ? 0 : headerHeight + root.rowHeight
             visible: !hidden
             z: lifted ? 10 : 0
+            // safety net: if the held row goes anyway (the queue replaced under it), the drag ends and the rows
+            // close up instead of leaving the slot open with no card in it
+            Component.onDestruction: if (lifted && root._pointerY >= 0) root.endDrag()
 
             Loader {
                 id: head
@@ -374,14 +382,14 @@ Item {
                         width: parent.width
                         height: cell.sec === "context" && root.dropZoneShown && root.manualRows === 0 ? zone.height + 8 : 0
                         visible: height > 0
-                        QueueDropZone {
+                        QueueDropZone { scheme: root.scheme;
                             id: zone
                             y: 8
                             width: parent.width
                             active: dropZoneHover.containsDrag
                         }
                     }
-                    QueueSectionHeader {
+                    QueueSectionHeader { scheme: root.scheme;
                         width: parent.width
                         title: cell.sec === "manual" ? I18n.t("Next in queue")
                              : Player.contextTitle !== "" ? I18n.t("Next from “{0}”", Player.contextTitle) : I18n.t("Next up")
@@ -391,7 +399,7 @@ Item {
                 }
             }
 
-            QueueRow {
+            QueueRow { scheme: root.scheme;
                 id: row
                 x: root._bleed
                 width: parent.width - 2 * root._bleed
@@ -454,7 +462,7 @@ Item {
                         Catalog.openUri(Player.contextUri)
                 }
             }
-            QueueDropZone {
+            QueueDropZone { scheme: root.scheme;
                 visible: root.contextRows === 0 && root.dropZoneShown
                 width: parent.width
                 active: dropZoneHover.containsDrag

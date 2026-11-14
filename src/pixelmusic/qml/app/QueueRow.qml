@@ -12,6 +12,8 @@ import PixelMusic.Core
 // The row height includes the gap between cards (rowGap, 8 px like the target's spacedBy(8.dp)).
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property var track: ({})              // строка Player.queue (QUEUE_KEYS)
     property bool current: false
@@ -48,12 +50,12 @@ Item {
     readonly property var _coverSquare: ({ kind: "square", p: 7 })
     readonly property var _coverRound: ({ kind: "square", p: 3 })
 
-    readonly property color fg: _mix(Theme.fgSurface, Theme.fgPrimaryContainer, hl)
+    readonly property color fg: _mix(root.scheme.fgSurface, root.scheme.fgPrimaryContainer, hl)
     // The target's cards are surfaceContainerLow on its `background`, one tone step above the panel. Pixel Music's
     // panels are surfaceContainer, so the same step up is surfaceContainerHigh: solid, also over Now Playing's
     // cover backdrop (the scheme follows the cover there).
-    readonly property color _base: Theme.surfaceContainerHigh
-    readonly property color _container: _mix(_base, Theme.primaryContainer, hl)
+    readonly property color _base: root.scheme.surfaceContainerHigh
+    readonly property color _container: _mix(_base, root.scheme.primaryContainer, hl)
 
     // the lifted card grows a little (1.025, no bounce)
     scale: dragging ? 1.025 : 1
@@ -66,7 +68,7 @@ Item {
         offset.y: 3
         blur: 10
         spread: 0
-        color: Qt.alpha(Theme.shadow, Theme.dark ? 0.45 : 0.22)
+        color: Qt.alpha(root.scheme.shadow, Theme.dark ? 0.45 : 0.22)
         opacity: root.dragging ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
@@ -78,8 +80,8 @@ Item {
         anchors.topMargin: root.rowGap / 2
         anchors.bottomMargin: root.rowGap / 2
         radius: 20 + 12 * root.hl
-        color: root.dragging ? Theme.surfaceContainerHighest
-             : rowHover.hovered && !root.current ? Qt.tint(root._container, Qt.alpha(Theme.fgSurface, 0.05))
+        color: root.dragging ? root.scheme.surfaceContainerHighest
+             : rowHover.hovered && !root.current ? Qt.tint(root._container, Qt.alpha(root.scheme.fgSurface, 0.05))
              : root._container
         Behavior on color { enabled: !Theme.transitioning && root.hl % 1 === 0; ColorAnimation { duration: Theme.motion.effectsFast } }
     }
@@ -112,8 +114,8 @@ Item {
                 anchors.centerIn: parent
                 name: "drag_indicator"
                 size: 20
-                color: root.current || root.dragging ? Qt.alpha(Theme.fgPrimaryContainer, 0.85)
-                     : Qt.alpha(Theme.fgSurfaceVariant, handleHover.hovered ? 0.8 : 0.45)
+                color: root.current || root.dragging ? Qt.alpha(root.scheme.fgPrimaryContainer, 0.85)
+                     : Qt.alpha(root.scheme.fgSurfaceVariant, handleHover.hovered ? 0.8 : 0.45)
                 Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsFast } }
             }
             HoverHandler { id: handleHover; enabled: root.draggable; cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor }
@@ -138,7 +140,7 @@ Item {
             fallbackArtist: (root.track.artists ?? "").split(", ")[0]
             fallbackTitle: (root.track.album ?? "") !== "" ? root.track.album : (root.track.title ?? "")
             shape: root.current ? root._coverRound : root._coverSquare
-            placeholderColor: root.current ? Qt.alpha(Theme.fgPrimaryContainer, 0.12) : Theme.surfaceContainerHighest
+            placeholderColor: root.current ? Qt.alpha(root.scheme.fgPrimaryContainer, 0.12) : root.scheme.surfaceContainerHighest
         }
 
         ColumnLayout {
@@ -161,7 +163,7 @@ Item {
                     implicitWidth: 16
                     implicitHeight: 16
                     radius: 4
-                    color: root.current ? Qt.tint(Theme.primaryContainer, Qt.alpha(Theme.fgPrimaryContainer, 0.14)) : Theme.surfaceContainerHighest
+                    color: root.current ? Qt.tint(root.scheme.primaryContainer, Qt.alpha(root.scheme.fgPrimaryContainer, 0.14)) : root.scheme.surfaceContainerHighest
                     Label { anchors.centerIn: parent; text: "E"; type: "labelSmall"; color: Qt.alpha(root.fg, 0.7) }
                 }
                 Item { Layout.fillWidth: true }
@@ -191,7 +193,7 @@ Item {
             Layout.preferredHeight: 18
             Layout.leftMargin: 6
             Layout.rightMargin: 6
-            color: Theme.fgPrimaryContainer
+            color: root.scheme.fgPrimaryContainer
             playing: Player.playing
         }
 
@@ -203,13 +205,13 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                color: root._mix(Theme.surfaceContainerHighest, Qt.tint(Theme.primaryContainer, Qt.alpha(Theme.fgPrimaryContainer, 0.15)), root.hl)
+                color: root._mix(root.scheme.surfaceContainerHighest, Qt.tint(root.scheme.primaryContainer, Qt.alpha(root.scheme.fgPrimaryContainer, 0.15)), root.hl)
             }
             Icon {
                 anchors.centerIn: parent
                 name: "more_vert"
                 size: 20
-                color: root._mix(Theme.fgSurfaceVariant, Theme.fgPrimaryContainer, root.hl)
+                color: root._mix(root.scheme.fgSurfaceVariant, root.scheme.fgPrimaryContainer, root.hl)
             }
             StateLayer {
                 anchors.fill: parent

@@ -5,6 +5,8 @@ import Md3
 // Карточка «Играет из …»: обложка 40 px, тип и название контекста, chevron_right. Клик — открыть контекст.
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property var context: ({})             // Player.queueContext {type, uri, title, cover}
     signal clicked()
@@ -31,7 +33,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: Theme.shape.largeIncreased
-        color: Theme.surfaceContainerHigh
+        color: root.scheme.surfaceContainerHigh
     }
     StateLayer {
         anchors.fill: parent
@@ -58,13 +60,13 @@ Item {
                 anchors.fill: parent
                 visible: (root.context.cover ?? "") === ""
                 shape: root.kind === "liked" ? "cookie9" : "softSquare"
-                color: root.kind === "liked" ? Theme.primaryContainer : Theme.secondaryContainer
+                color: root.kind === "liked" ? root.scheme.primaryContainer : root.scheme.secondaryContainer
                 Icon {
                     anchors.centerIn: parent
                     name: root.kindIcons[root.kind] ?? "queue_music"
                     size: 22
                     fill: 1
-                    color: root.kind === "liked" ? Theme.fgPrimaryContainer : Theme.fgSecondaryContainer
+                    color: root.kind === "liked" ? root.scheme.fgPrimaryContainer : root.scheme.fgSecondaryContainer
                 }
             }
         }
@@ -75,18 +77,20 @@ Item {
                 Layout.fillWidth: true
                 text: root.fromNames[root.kind] ?? I18n.t("Playing from")
                 type: "labelMedium"
-                color: Theme.fgSurfaceVariant
+                color: root.scheme.fgSurfaceVariant
             }
             Label {
                 Layout.fillWidth: true
                 text: root.context.title || (root.kindNames[root.kind] ?? "")
                 type: "titleSmall"
                 weight: 600
+                color: root.scheme.fgSurface
             }
         }
         Icon {
             name: "chevron_right"
             size: 22
+            color: root.scheme.fgSurfaceVariant
         }
     }
 }

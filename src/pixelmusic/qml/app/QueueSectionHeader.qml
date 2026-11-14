@@ -6,6 +6,8 @@ import Md3
 // cards under its "Next Up" header, so the groups only get a small onSurfaceVariant caption.
 Item {
     id: root
+    // colour roles: Theme (the app) by default; the full player's queue passes PlayerTheme
+    property var scheme: Theme
 
     property string title
     property int count: -1                 // < 0 — без счётчика
@@ -33,13 +35,13 @@ Item {
                 text: root.title
                 type: "labelLarge"
                 weight: 600
-                color: Theme.fgSurfaceVariant
+                color: root.scheme.fgSurfaceVariant
             }
             Label {
                 visible: root.count >= 0
                 text: "· " + root.count
                 type: "labelLarge"
-                color: Qt.alpha(Theme.fgSurfaceVariant, 0.7)
+                color: Qt.alpha(root.scheme.fgSurfaceVariant, 0.7)
             }
             Item { Layout.fillWidth: true }
         }
@@ -48,7 +50,7 @@ Item {
             Layout.fillWidth: true
             text: root.note
             type: "bodySmall"
-            color: Qt.alpha(Theme.fgSurfaceVariant, 0.7)
+            color: Qt.alpha(root.scheme.fgSurfaceVariant, 0.7)
         }
     }
 }
