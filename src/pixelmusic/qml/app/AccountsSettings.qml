@@ -23,6 +23,15 @@ ColumnLayout {
     readonly property int availableCount: 2     // YouTube Music, Last.fm
     readonly property bool narrow: width < 560
 
+    // The YouTube Music card's own colours: a deep red brand gradient with white content (the Android reference).
+    // Fixed — not Theme.* — so the card looks the same in light and dark mode and with any palette.
+    readonly property color ytDeep: "#4A0C12"       // gradient top
+    readonly property color ytRed: "#8E1B22"        // gradient bottom, the switch thumb, text on white buttons
+    readonly property color ytFg: "#FFFFFF"
+    readonly property color ytFgSoft: Qt.rgba(1, 1, 1, 0.78)
+    readonly property color ytTint: Qt.rgba(1, 1, 1, 0.14)   // chips, round icon backs, the off switch track
+    readonly property color ytLine: Qt.rgba(1, 1, 1, 0.18)   // dividers
+
     spacing: 24
 
     // Open Service on the Last.fm card → SettingsPage opens the "lastfm" category
@@ -38,6 +47,7 @@ ColumnLayout {
         property color content: Theme.fgPrimary
         property bool outlined: false
         property bool busy: false
+        property color stroke: content === Theme.error ? Theme.error : Theme.outline
         signal clicked()
         Layout.fillWidth: true
         implicitHeight: 56
@@ -46,7 +56,7 @@ ColumnLayout {
         Behavior on radius { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutBack } }
         color: outlined ? "transparent" : Theme.primary
         border.width: outlined ? 1.5 : 0
-        border.color: pill.content === Theme.error ? Theme.error : Theme.outline
+        border.color: pill.stroke
         opacity: enabled ? 1 : 0.5
         Row {
             id: pillRow
@@ -83,6 +93,10 @@ ColumnLayout {
         property bool checked: false
         property bool first: false
         property bool last: false
+        // brand: the fixed YouTube colours of youtubeCard (white on red), the same in light and dark mode
+        property bool brand: false
+        readonly property color _fg: brand ? root.ytFg : Theme.fgSurface
+        readonly property color _fgSoft: brand ? root.ytFgSoft : Theme.fgSurfaceVariant
         signal toggled(bool checked)
         Layout.fillWidth: true
         implicitHeight: Math.max(72, rowLayout.implicitHeight + 32)
@@ -90,14 +104,14 @@ ColumnLayout {
         topRightRadius: topLeftRadius
         bottomLeftRadius: last ? 20 : 4
         bottomRightRadius: bottomLeftRadius
-        color: Theme.surfaceContainerLowest
+        color: brand ? "transparent" : Theme.surfaceContainerLowest
         StateLayer {
             anchors.fill: parent
             topLeftRadius: row.topLeftRadius
             topRightRadius: row.topRightRadius
             bottomLeftRadius: row.bottomLeftRadius
             bottomRightRadius: row.bottomRightRadius
-            color: Theme.fgSurface
+            color: row._fg
             onClicked: row.toggled(!row.checked)
         }
         RowLayout {
@@ -113,25 +127,25 @@ ColumnLayout {
                 Layout.preferredHeight: 40
                 Layout.alignment: Qt.AlignVCenter
                 radius: 20
-                color: row.checked ? Theme.secondaryContainer : Theme.surfaceContainerHighest
+                color: row.brand ? root.ytTint : row.checked ? Theme.secondaryContainer : Theme.surfaceContainerHighest
                 Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
                 Icon {
                     anchors.centerIn: parent
                     name: row.icon
                     size: 22
                     fill: row.checked ? 1 : 0
-                    color: row.checked ? Theme.fgSecondaryContainer : Theme.fgSurfaceVariant
+                    color: row.brand ? root.ytFg : row.checked ? Theme.fgSecondaryContainer : Theme.fgSurfaceVariant
                 }
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 2
-                Label { Layout.fillWidth: true; text: row.title; type: "titleMedium"; weight: 600; color: Theme.fgSurface }
+                Label { Layout.fillWidth: true; text: row.title; type: "titleMedium"; weight: 600; color: row._fg }
                 Label {
                     Layout.fillWidth: true
                     text: row.text
                     type: "bodyMedium"
-                    color: Theme.fgSurfaceVariant
+                    color: row._fgSoft
                     wrapMode: Text.WordWrap
                     elide: Text.ElideNone
                 }
@@ -139,6 +153,14 @@ ColumnLayout {
             Switch {
                 Layout.alignment: Qt.AlignVCenter
                 checked: row.checked
+                // on the red card: a white track with a deep-red thumb (the reference), off — a faint white outline
+                trackOn: row.brand ? root.ytFg : Theme.primary
+                thumbOn: row.brand ? root.ytRed : Theme.fgPrimary
+                iconOn: row.brand ? root.ytFg : trackOn
+                trackOff: row.brand ? root.ytTint : Theme.surfaceContainerHighest
+                outlineOff: row.brand ? root.ytFgSoft : Theme.outline
+                thumbOff: row.brand ? root.ytFgSoft : Theme.outline
+                iconOff: row.brand ? root.ytDeep : trackOff
                 onToggled: c => row.toggled(c)
             }
         }
@@ -219,14 +241,19 @@ ColumnLayout {
         readonly property string st: Auth.youtubeState
         readonly property bool busy: st === "awaitingBrowser" || st === "verifying" || st === "checking"
         property bool expanded: false
-        readonly property color fg: Theme.fgSurface
-        readonly property color fgSoft: Theme.fgSurfaceVariant
+        readonly property color fg: root.ytFg
+        readonly property color fgSoft: root.ytFgSoft
         readonly property bool syncing: Library.pagesTotal > 0 && Library.pagesLoaded < Library.pagesTotal
+        readonly property string avatar: Auth.youtubeSignedIn ? (Auth.youtubeAccount.avatar ?? "") : ""
 
         Layout.fillWidth: true
         implicitHeight: ytCol.implicitHeight + 48
         radius: Theme.shape.extraLarge + 4
-        color: Theme.surfaceContainerHigh
+        // the YouTube brand gradient, the same in light and dark mode
+        gradient: Gradient {
+            GradientStop { position: 0; color: root.ytDeep }
+            GradientStop { position: 1; color: root.ytRed }
+        }
 
         ColumnLayout {
             id: ytCol
@@ -252,26 +279,31 @@ ColumnLayout {
                     Item {
                         Layout.preferredWidth: 64
                         Layout.preferredHeight: 64
-                        Layout.alignment: Qt.AlignTop
+                        Layout.alignment: Qt.AlignVCenter
+                        // signed in: the account picture, large, in place of the logo (a white ring keeps it off the red)
                         Rectangle {
+                            visible: youtubeCard.avatar !== ""
+                            anchors.fill: parent
+                            radius: width / 2
+                            color: root.ytFg
+                            MorphImage {
+                                anchors.fill: parent
+                                anchors.margins: 2
+                                source: youtubeCard.avatar
+                                shape: "circle"
+                                fallbackKind: "artist"
+                                fallbackArtist: Auth.youtubeAccount.name ?? ""
+                            }
+                        }
+                        // signed out (or no picture): the YouTube logo
+                        Rectangle {
+                            visible: youtubeCard.avatar === ""
                             anchors.centerIn: parent
                             width: 64
                             height: 46
                             radius: 14
                             color: "#FF0000"
                             Icon { anchors.centerIn: parent; name: "play_arrow"; size: 34; fill: 1; color: "white" }
-                        }
-                        // the account picture, small, on the logo's corner
-                        MorphImage {
-                            visible: Auth.youtubeSignedIn && (Auth.youtubeAccount.avatar ?? "") !== ""
-                            width: 26
-                            height: 26
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            anchors.rightMargin: -6
-                            anchors.bottomMargin: -2
-                            source: Auth.youtubeAccount.avatar ?? ""
-                            shape: "circle"
                         }
                     }
                     ColumnLayout {
@@ -310,17 +342,17 @@ ColumnLayout {
                         implicitWidth: linkedRow.implicitWidth + 28
                         implicitHeight: 32
                         radius: 16
-                        color: Theme.primaryContainer
+                        color: root.ytTint
                         Row {
                             id: linkedRow
                             anchors.centerIn: parent
                             spacing: 6
-                            Icon { name: "check_circle"; size: 18; fill: 1; color: Theme.fgPrimaryContainer; anchors.verticalCenter: parent.verticalCenter }
+                            Icon { name: "check_circle"; size: 18; fill: 1; color: root.ytFg; anchors.verticalCenter: parent.verticalCenter }
                             Label {
                                 text: I18n.t("Connected")
                                 type: "labelLarge"
                                 weight: 600
-                                color: Theme.fgPrimaryContainer
+                                color: root.ytFg
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -330,6 +362,8 @@ ColumnLayout {
                         Layout.alignment: Qt.AlignVCenter
                         icon: "expand_more"
                         style: "tonal"
+                        containerColor: root.ytTint
+                        iconColor: root.ytFg
                         checkable: true
                         autoToggle: false
                         checked: youtubeCard.expanded
@@ -363,14 +397,20 @@ ColumnLayout {
                     id: syncCol
                     width: parent.width
                     spacing: 2
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.bottomMargin: 12
+                        implicitHeight: 1
+                        color: root.ytLine
+                    }
                     Label {
                         Layout.fillWidth: true
                         Layout.topMargin: 4
                         Layout.leftMargin: 4
                         text: I18n.t("Synchronization & Personalization")
-                        type: "titleSmall"
-                        weight: 600
-                        color: Theme.primary
+                        type: "titleMedium"
+                        weight: 700
+                        color: root.ytFg
                     }
                     // each row is a real setting the services follow (sf-services lib.rs follow_youtube_account_use,
                     // history.rs for listening activity)
@@ -388,6 +428,7 @@ ColumnLayout {
                         SyncRow {
                             required property var modelData
                             required property int index
+                            brand: true
                             first: index === 0
                             last: index === 3
                             icon: modelData.icon
@@ -402,14 +443,21 @@ ColumnLayout {
 
 
             // --- signed in: Sync Library Now + Disconnect ---
+            Rectangle {
+                visible: Auth.youtubeSignedIn
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: root.ytLine
+            }
             PillButton {
                 visible: Auth.youtubeSignedIn
                 text: youtubeCard.syncing ? I18n.t("Syncing library… {0}/{1}", Library.pagesLoaded, Library.pagesTotal)
                                           : I18n.t("Sync Library Now")
                 icon: "sync"
                 busy: youtubeCard.syncing
-                color: Theme.primary
-                content: Theme.fgPrimary
+                // white pill with red text; while syncing a translucent one (the reference)
+                color: youtubeCard.syncing ? Qt.rgba(1, 1, 1, 0.3) : root.ytFg
+                content: youtubeCard.syncing ? root.ytFg : root.ytRed
                 onClicked: Library.refresh()
             }
             PillButton {
@@ -417,7 +465,8 @@ ColumnLayout {
                 text: I18n.t("Disconnect")
                 icon: "logout"
                 outlined: true
-                content: Theme.error
+                content: root.ytFg
+                stroke: root.ytFgSoft
                 onClicked: Auth.youtubeSignOut()
             }
 
@@ -430,8 +479,8 @@ ColumnLayout {
                     visible: !youtubeCard.busy
                     text: I18n.t("Sign in")
                     icon: "open_in_new"
-                    color: Theme.primary
-                    content: Theme.fgPrimary
+                    color: root.ytFg
+                    content: root.ytRed
                     onClicked: Auth.startYouTubeLogin()
                 }
                 PillButton {
@@ -439,6 +488,7 @@ ColumnLayout {
                     text: I18n.t("Cancel")
                     outlined: true
                     content: youtubeCard.fg
+                    stroke: root.ytFgSoft
                     onClicked: Auth.cancelYouTubeLogin()
                 }
             }
@@ -474,6 +524,7 @@ ColumnLayout {
                         icon: "edit"
                         outlined: true
                         content: youtubeCard.fg
+                        stroke: root.ytFgSoft
                         enabled: !youtubeCard.busy
                         onClicked: {
                             cookieField.text = ""

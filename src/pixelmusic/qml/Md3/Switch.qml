@@ -7,6 +7,14 @@ Item {
     property bool checked: false
     property bool icons: true
     readonly property alias pressed: area.pressed
+    // colours: the theme by default; a branded card (the YouTube account) sets its own
+    property color trackOn: Theme.primary
+    property color trackOff: Theme.surfaceContainerHighest
+    property color outlineOff: Theme.outline
+    property color thumbOn: Theme.fgPrimary
+    property color thumbOff: Theme.outline
+    property color iconOn: trackOn
+    property color iconOff: trackOff
 
     signal toggled(bool checked)
 
@@ -17,9 +25,9 @@ Item {
         id: track
         anchors.fill: parent
         radius: height / 2
-        color: root.checked ? Theme.primary : Theme.surfaceContainerHighest
+        color: root.checked ? root.trackOn : root.trackOff
         border.width: root.checked ? 0 : 2
-        border.color: Theme.outline
+        border.color: root.outlineOff
         opacity: root.enabled ? 1 : Theme.stateLayer.disabledContainer
         Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
     }
@@ -36,7 +44,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            color: root.checked ? Theme.primary : Theme.fgSurface
+            color: root.checked ? root.trackOn : Theme.fgSurface
             opacity: area.pressed ? Theme.stateLayer.pressed : area.containsMouse ? Theme.stateLayer.hover : 0
             Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsFast } }
         }
@@ -48,7 +56,7 @@ Item {
             height: d
             radius: d / 2
             anchors.centerIn: parent
-            color: root.checked ? Theme.fgPrimary : Theme.outline
+            color: root.checked ? root.thumbOn : root.thumbOff
             Behavior on d { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutBack } }
             Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
 
@@ -58,7 +66,7 @@ Item {
                 name: root.checked ? "check" : "close"
                 size: 16
                 weight: 600
-                color: root.checked ? Theme.primary : Theme.surfaceContainerHighest  // fgPrimaryContainer в схеме 2025 сливается с бегунком
+                color: root.checked ? root.iconOn : root.iconOff  // fgPrimaryContainer в схеме 2025 сливается с бегунком
             }
         }
     }
