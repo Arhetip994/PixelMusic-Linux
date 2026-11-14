@@ -306,7 +306,7 @@ Page {
         { mode: "blobs", text: I18n.t("Blobs"), hint: I18n.t("Large color blobs") }
     ]
 
-    readonly property var transitions: [
+    readonly property var trackTransitions: [   // not "transitions": Item.transitions exists
         { mode: "wipe", text: I18n.t("Wipe"), hint: I18n.t("New colors and background slide in from the side: left to right for the next track, right to left for the previous one") },
         { mode: "ripple", text: I18n.t("Ripple from cover"), hint: I18n.t("New colors and background spread out from the cover in a wavy-edged shape") },
         { mode: "dissolve", text: I18n.t("Dissolve"), hint: I18n.t("Old colors and background gently fade away, revealing the new ones") },
@@ -1034,7 +1034,7 @@ Page {
                         Layout.fillWidth: true
                         spacing: 8
                         Repeater {
-                            model: page.transitions
+                            model: page.trackTransitions
                             Chip {
                                 required property var modelData
                                 text: modelData.text
@@ -1046,7 +1046,7 @@ Page {
                     Label {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
-                        text: (page.transitions.find(m => m.mode === Settings.trackTransition) ?? page.transitions[0]).hint
+                        text: (page.trackTransitions.find(m => m.mode === Settings.trackTransition) ?? page.trackTransitions[0]).hint
                         type: "bodyMedium"
                         color: Theme.fgSurfaceVariant
                     }

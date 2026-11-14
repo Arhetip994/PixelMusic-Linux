@@ -123,7 +123,12 @@ mod tests {
                     let code = line.split("//").next().unwrap_or("");
                     let Some(at) = code.find("icon:").or_else(|| code.find("Icon:")) else { continue };
                     // property bindings like `icon: "name"` or `icon: cond ? "a" : "b"`, up to the next property
-                    let binding = code[at..].split([';', '}']).next().unwrap_or("");
+                    let mut binding = code[at..].split([';', '}']).next().unwrap_or("");
+                    // in a JS object literal the next key follows a comma: `icon: "info", tone: "primary"` —
+                    // "primary" is the tone, not an icon
+                    if let Some(cut) = next_object_key(binding) {
+                        binding = &binding[..cut];
+                    }
                     let parts: Vec<&str> = binding.split('"').collect();
                     for (index, name) in parts.iter().enumerate().skip(1).step_by(2) {
                         // operands of comparisons and call arguments are not icons: `x === "one" ? …`
@@ -141,5 +146,22 @@ mod tests {
             }
         }
         assert!(missing.is_empty(), "icons missing from the subset font (run tools/subset_fonts.py):\n{}", missing.join("\n"));
+    }
+
+    /// Byte offset of the comma that starts the next `key:` of an object literal, if any. A comma in call
+    /// arguments (`f("a", "b")`) or before a ternary (`, x ? "a" : "b"`) is not followed by `ident:`.
+    fn next_object_key(binding: &str) -> Option<usize> {
+        binding.match_indices(',').map(|(i, _)| i).find(|&i| {
+            let rest = binding[i + 1..].trim_start();
+            let ident = rest.bytes().take_while(|b| b.is_ascii_alphanumeric() || *b == b'_').count();
+            ident > 0 && rest[ident..].trim_start().starts_with(':')
+        })
+    }
+
+    #[test]
+    fn next_object_key_stops_at_the_next_key_only() {
+        assert_eq!(next_object_key(r#"icon: "info", tone: "primary""#), Some(12));
+        assert_eq!(next_object_key(r#"icon: pick("a", "b")"#), None);
+        assert_eq!(next_object_key(r#"icon: on ? "a" : "b""#), None);
     }
 }

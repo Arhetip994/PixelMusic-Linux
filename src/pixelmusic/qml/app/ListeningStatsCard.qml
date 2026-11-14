@@ -515,10 +515,11 @@ ColumnLayout {
         radius: 28
         color: Theme.surfaceContainerHigh
         readonly property real total: Math.max(1, root.summary.totalSeconds ?? 0)
-        readonly property var palette: [Theme.primary, Theme.tertiary, Theme.secondary, Theme.primaryFixedDim, Theme.tertiaryFixedDim]
+        // not "palette": that would shadow Item.palette (Qt warns "overrides a member of the base object")
+        readonly property var sliceColors: [Theme.primary, Theme.tertiary, Theme.secondary, Theme.primaryFixedDim, Theme.tertiaryFixedDim]
         readonly property var parts: {
             const artists = (root.summary.topArtists ?? []).slice(0, 4)
-            const list = artists.map((a, i) => ({ name: a.title, seconds: a.seconds, color: palette[i] }))
+            const list = artists.map((a, i) => ({ name: a.title, seconds: a.seconds, color: sliceColors[i] }))
             const rest = total - artists.reduce((sum, a) => sum + a.seconds, 0)
             if (rest > 0)
                 list.push({ name: I18n.t("Everyone else"), seconds: rest, color: Theme.outlineVariant })
