@@ -151,7 +151,10 @@ Page {
     // _syncShelves (no blank page, no jump), with the pull indicator spinning until the feed is in
     readonly property bool loadingFeed: Home.loading || (youtubeHome && Home.youtubeLoading)
     property bool refreshing: false
+    // a refresh also turns "Similar to" to another of the top artists
+    property int similarTurn: 0
     function refresh() {
+        similarTurn++
         flickable.scrollTo(flickable.minY, true)
         refreshing = true
         refreshFloor.restart()
@@ -510,7 +513,7 @@ Page {
     // "Similar to <artist>": the artists paired with the one played most
     Component {
         id: similarShelf
-        HomeSimilarShelf { sectionPad: page.sectionPad }
+        HomeSimilarShelf { sectionPad: page.sectionPad; turn: page.similarTurn }
     }
 
     // "From your Last.fm": recent scrobbles, top albums, friends

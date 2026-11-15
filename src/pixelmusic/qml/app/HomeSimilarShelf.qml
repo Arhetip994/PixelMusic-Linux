@@ -7,8 +7,10 @@ import PixelMusic.Core
 // Catalog.artist(id).similar), with that artist's picture by the title, as YouTube Music's own "Similar to" shelves,
 // and below them the playlists the artist is featured on. Play plays the artist's popular songs; Radio starts the
 // artist's radio (their songs mixed with similar artists', as Radio on the artist page).
-// The artist is the most played one of all time on this computer (Extras.stats). Until its similar artists have
-// arrived the shelf has no height, so its section card stays hidden instead of showing empty.
+// The artist rotates among the five played most of all time on this computer (Extras.stats): a random one each
+// time the app starts and each time Home is refreshed (`turn` changes), never the same one twice in a row.
+// Until its similar artists have arrived the shelf has no height, so its section card stays hidden instead of
+// showing empty.
 Item {
     id: root
 
@@ -17,21 +19,32 @@ Item {
     property var artist: null
     property string seedName: ""
     property string seedId: ""
+    // bumped by Home on a refresh: another of the top artists
+    property int turn: 0
+    onTurnChanged: pickArtist()
     readonly property var info: artist ? artist.info : ({})
     readonly property bool ready: artist !== null && artist.similar.count > 0
 
     implicitHeight: ready ? col.implicitHeight : 0
     visible: ready
 
-    Component.onCompleted: {
+    Component.onCompleted: pickArtist()
+
+    function pickArtist() {
+        // the top five with a real artist id (a name stands in when the play had none; that cannot open an artist)
         const top = (Extras.stats("all").topArtists ?? [])
-        // a real artist id (a name stands in when the play had none; that cannot open an artist)
-        const pick = top.find(a => (a.id ?? "") !== "" && a.id !== (a.title ?? "").toLowerCase())
-        if (pick) {
-            seedName = pick.title ?? ""
-            seedId = pick.id
-            artist = Catalog.artist(pick.id)
-        }
+            .filter(a => (a.id ?? "") !== "" && a.id !== (a.title ?? "").toLowerCase())
+            .slice(0, 5)
+        if (top.length === 0)
+            return
+        // not the one shown right now, when there is another to show
+        const others = top.length > 1 ? top.filter(a => a.id !== seedId) : top
+        const pick = others[Math.floor(Math.random() * others.length)]
+        if (pick.id === seedId && artist)
+            return
+        seedName = pick.title ?? ""
+        seedId = pick.id
+        artist = Catalog.artist(pick.id)
     }
 
     ColumnLayout {
