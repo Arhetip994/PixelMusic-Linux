@@ -29,7 +29,7 @@ Item {
     readonly property bool dropZoneShown: Player.isLocal && Player.hasTrack && Player.manualCount === 0
     // the list reaches this far past the panel padding on each side, so a lifted card (scaled, with a shadow) is not
     // cut by the list's clip; rows keep the panel's width inside it
-    readonly property real _bleed: 12
+    readonly property real _bleed: 28
 
     function recount() {
         if (!queue) {

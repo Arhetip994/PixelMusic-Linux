@@ -38,6 +38,13 @@ pub enum SettingKey {
     BackdropMode,
     NowPlayingBlur,
     NowPlayingDrift,
+    /// the veil over the cover in the Default and black player backgrounds, 0..1 (the player maps it to 40–90 %)
+    PlayerVeil,
+    /// dark mode: the player sheet is black, the cover background (blur strength, blobs…) glows through it
+    PlayerBlack,
+    /// "expressive" — the mini player on its primaryContainer pill; "default" — the full player's buttons on the
+    /// Default background (blurred cover under the surface veil)
+    MiniPlayerStyle,
     AmbientBackground,
     CoverSpin,
     CoverPulse,
@@ -261,7 +268,7 @@ pub enum SettingType {
 }
 
 impl SettingKey {
-    pub const ALL: [SettingKey; 121] = [
+    pub const ALL: [SettingKey; 124] = [
         SettingKey::ThemeMode,
         SettingKey::SchemeVariant,
         SettingKey::AccentFromCover,
@@ -273,6 +280,9 @@ impl SettingKey {
         SettingKey::BackdropMode,
         SettingKey::NowPlayingBlur,
         SettingKey::NowPlayingDrift,
+        SettingKey::PlayerVeil,
+        SettingKey::PlayerBlack,
+        SettingKey::MiniPlayerStyle,
         SettingKey::AmbientBackground,
         SettingKey::CoverSpin,
         SettingKey::CoverPulse,
@@ -400,6 +410,9 @@ impl SettingKey {
             BackdropMode => "backdropMode",
             NowPlayingBlur => "nowPlayingBlur",
             NowPlayingDrift => "nowPlayingDrift",
+            PlayerVeil => "playerVeil",
+            PlayerBlack => "playerBlack",
+            MiniPlayerStyle => "miniPlayerStyle",
             AmbientBackground => "ambientBackground",
             CoverSpin => "coverSpin",
             CoverPulse => "coverPulse",
@@ -534,14 +547,17 @@ impl SettingKey {
             SchemeVariant => Str("tonalSpot".into()),
             AccentFromCover => Bool(true),
             PlayerFromCover => Bool(true),
-            PitchBlack => Bool(false),
+            PitchBlack => Bool(true),
             CustomSeed => Str("#8C6DFF".into()), // Ultraviolet, фирменный акцент PixelMusic
             WindowButtons => Bool(false),
             TrackTransition => Str("wipe".into()),
-            BackdropMode => Str("gauss".into()),
+            BackdropMode => Str("default".into()),
             NowPlayingBlur => Float(1.0),
             NowPlayingDrift => Float(0.5),
-            AmbientBackground => Bool(true),
+            PlayerVeil => Float(0.5),
+            PlayerBlack => Bool(false),
+            MiniPlayerStyle => Str("expressive".into()),
+            AmbientBackground => Bool(false),
             CoverSpin => Bool(true),
             CoverPulse => Bool(true),
             CalmWhenInactive => Bool(true),
@@ -677,6 +693,9 @@ impl SettingKey {
             (SettingKey::LastFmThresholdPct, SettingValue::Int(percent)) => SettingValue::Int(percent.clamp(25, 100)),
             (SettingKey::LastFmMaxThresholdS, SettingValue::Int(seconds)) => SettingValue::Int(seconds.clamp(30, 600)),
             (SettingKey::LastFmMixRetentionDays, SettingValue::Int(days)) => SettingValue::Int(days.clamp(0, 365)),
+            (SettingKey::PlayerVeil, SettingValue::Float(v)) => {
+                SettingValue::Float(if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.5 })
+            }
             (SettingKey::LyricsFontScale, SettingValue::Float(v)) => {
                 SettingValue::Float(if v.is_finite() { v.clamp(0.7, 1.6) } else { 1.0 })
             }
@@ -1080,7 +1099,7 @@ pub fn category_keys(category: &str) -> Vec<SettingKey> {
         "music" => &["audioCache", "audioCacheMb", "downloadsLimitMb"],
         "appearance" => &[
             "themeMode", "schemeVariant", "accentFromCover", "playerFromCover", "customSeed", "trackTransition", "backdropMode",
-            "nowPlayingBlur", "nowPlayingDrift", "ambientBackground", "coverSpin", "coverPulse", "calmWhenInactive",
+            "nowPlayingBlur", "nowPlayingDrift", "playerVeil", "playerBlack", "miniPlayerStyle", "ambientBackground", "coverSpin", "coverPulse", "calmWhenInactive",
             "animations", "lowPowerMode", "gpuPreference", "language", "uiScale", "logoColorway", "homeRadioHidden",
             "sidebarLibrary", "closeToTray", "wheelStep", "floatingPlayer", "floatingPlayerStyle", "floatingKeyHints",
             "floatingHideFullscreen", "floatingHideMaximized", "floatingEdge", "floatingOffsetX", "floatingFreeX",
@@ -1535,7 +1554,7 @@ mod reset_tests {
         }
         // the names in the table are all real keys (a typo would silently drop one)
         assert_eq!(seen.len(), CATEGORIES.iter().map(|c| category_keys(c).len()).sum::<usize>());
-        let total: usize = [14, 3, 36, 19, 12, 4, 5, 3].iter().sum();
+        let total: usize = [14, 3, 39, 19, 12, 4, 5, 3].iter().sum();
         assert_eq!(seen.len(), total, "a name in category_keys does not match a SettingKey");
         assert!(category_keys("stats").is_empty() && category_keys("backup").is_empty());
     }

@@ -148,32 +148,60 @@ Item {
 
         // Фон: PixelPlayer's player sheet is the cover scheme's primaryContainer (deep in dark mode, pale in light);
         // the blurred cover (when on) shows faintly through the same colour
-        Rectangle { anchors.fill: parent; color: PlayerTheme.primaryContainer }
+        // "Default" is the original player: the blurred cover on the theme surface under a surface veil (dark in
+        // dark mode, light in light mode). The other modes sit on the Expressive primaryContainer sheet
+        readonly property bool _classic: Settings.backdropMode === "default"
+        // Settings → Black player background (dark mode only): a black sheet, the chosen cover background (its blur
+        // strength, blobs…) glowing through the same veil as Default
+        readonly property bool _black: Settings.playerBlack && Theme.dark
+        // Settings → Background veil: 0–100 % on the slider is 40–90 % here
+        readonly property real _veil: 0.4 + 0.5 * Settings.playerVeil
+        // light mode: a dark cover under a light veil turned the sheet muddy grey, so Default there is the Gradient
+        // look (theme colours) with the blurred cover only faintly mixed in
+        readonly property bool _lightDefault: _classic && !Theme.dark
+        readonly property color _sheet: _black ? "#000000" : _classic && Theme.dark ? PlayerTheme.surface : PlayerTheme.primaryContainer
+        Rectangle { anchors.fill: parent; color: content._sheet }
         // Режим, сила размытия и «плавание» — из настроек (см. CoverBackdrop); при смене трека фон
         // меняется вместе с цветами темы — под той же шторкой (см. TrackBackdrop)
         // "Soft" here is the solid Expressive sheet alone: the dim cover blurred under the veil only muddied the
         // colour (darker sheet, same text tone), so the full player skips it
         TrackBackdrop {
             anchors.fill: parent
-            visible: Settings.backdropMode !== "gauss"
+            visible: content._black || Settings.backdropMode !== "gauss"
             // на весь экран — крупная обложка (CoverBackdrop размер в URL не подменяет)
             source: Player.coverLarge !== "" ? Player.coverLarge : Player.cover
-            mode: Settings.backdropMode
+            // Default blurs the cover the same way Soft does elsewhere (light mode: the gradient, see _lightDefault)
+            mode: content._lightDefault ? "palette" : content._classic ? "gauss" : Settings.backdropMode
             blur: Settings.nowPlayingBlur
             flow: Settings.nowPlayingDrift
             followTheme: Settings.accentFromCover
             running: root.visible && Player.playing
+        }
+        // light Default: a hint of the blurred cover over the gradient (Player background blur sets its softness)
+        TrackBackdrop {
+            anchors.fill: parent
+            visible: content._lightDefault
+            opacity: 0.15
+            source: Player.coverLarge !== "" ? Player.coverLarge : Player.cover
+            mode: "gauss"
+            blur: Settings.nowPlayingBlur
+            flow: Settings.nowPlayingDrift
+            followTheme: Settings.accentFromCover
+            running: visible && root.visible && Player.playing
         }
         // the veil over the cover background: thin enough for Settings → Cover background to show (each mode its
         // own strength: the gradient is theme colours already, the blurred cover needs more to keep text readable);
         // the controls on top are solid containers
         Rectangle {
             anchors.fill: parent
-            color: PlayerTheme.primaryContainer
-            visible: Settings.backdropMode !== "gauss"
+            color: content._sheet
+            visible: content._black || Settings.backdropMode !== "gauss"
             // thick enough that the title and controls (onPrimaryContainer) read as well as on Soft's solid sheet:
-            // the cover / blobs at 40–58 % mottled the text colour; the texture still shows through
-            opacity: ({ gauss: 0.66, glass: 0.8, palette: 0.66, blobs: 0.76 })[Settings.backdropMode] ?? 0.8
+            // the cover / blobs at 40–58 % mottled the text colour; the texture still shows through.
+            // Default and Black: the Background veil setting in dark mode; light Default — the Gradient's veil
+            opacity: content._black || (content._classic && Theme.dark) ? content._veil
+                : content._lightDefault ? 0.66
+                : ({ gauss: 0.66, glass: 0.8, palette: 0.66, blobs: 0.76 })[Settings.backdropMode] ?? 0.8
             Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
         }
 

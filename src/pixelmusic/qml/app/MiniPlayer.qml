@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Md3
 import PixelMusic.Core
 
@@ -61,6 +62,17 @@ Item {
     // PixelPlayer Desktop's player bar colours: content onPrimaryContainer at 75 %, toggles primary when on
     readonly property color _fg: PlayerTheme.fgPrimaryContainer
     readonly property color _fgSoft: Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.75)
+    // Settings → Mini player style: "default" — the full player's transport buttons on the Default background
+    // (the blurred cover under the surface veil, or black with Black player background in dark mode)
+    readonly property bool classic: Settings.miniPlayerStyle === "default"
+    // Settings → Black player background (dark mode): the pill goes black in either style, the cover glowing through
+    readonly property bool _black: Settings.playerBlack && Theme.dark
+    // light mode: the Gradient look (theme colours) with a hint of the blurred cover, as the full player's Default
+    readonly property bool _lightClassic: classic && !Theme.dark
+    readonly property color _sheet: _black ? "#000000" : classic && Theme.dark ? PlayerTheme.surface : PlayerTheme.primaryContainer
+    function _fullToggle(on, enabled, onColor) {
+        return !enabled ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.3) : on ? onColor : PlayerTheme.fullToggleIdle
+    }
     function _toggleIcon(on, enabled) {
         return !enabled ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.3) : on ? PlayerTheme.fgPrimary : PlayerTheme.toggleIdleMini
     }
@@ -74,10 +86,55 @@ Item {
         id: bg
         anchors.fill: parent
         radius: height / 2
-        color: PlayerTheme.primaryContainer
+        color: root._sheet
         Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsSlow } }
     }
     Elevation { target: bg; level: 2 }
+    // Default style: the cover background inside the pill, under the same veil as the full player's Default
+    Item {
+        id: coverBg
+        anchors.fill: bg
+        visible: root.classic || root._black
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: pillMask
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+        }
+        TrackBackdrop {
+            anchors.fill: parent
+            source: Player.cover
+            mode: root._lightClassic ? "palette" : Settings.backdropMode === "default" ? "gauss" : Settings.backdropMode
+            blur: Settings.nowPlayingBlur
+            flow: Settings.nowPlayingDrift
+            followTheme: Settings.accentFromCover
+            running: coverBg.visible && Player.playing
+        }
+        TrackBackdrop {
+            anchors.fill: parent
+            visible: root._lightClassic
+            opacity: 0.15
+            source: Player.cover
+            mode: "gauss"
+            blur: Settings.nowPlayingBlur
+            flow: Settings.nowPlayingDrift
+            followTheme: Settings.accentFromCover
+            running: visible && coverBg.visible && Player.playing
+        }
+        Rectangle {
+            anchors.fill: parent
+            color: root._sheet
+            opacity: root._lightClassic ? 0.66 : 0.4 + 0.5 * Settings.playerVeil
+        }
+    }
+    Rectangle {
+        id: pillMask
+        anchors.fill: bg
+        radius: bg.radius
+        visible: false
+        layer.enabled: coverBg.visible
+    }
     // The pill swallows presses and hover: a click in a gap between buttons, or on a disabled one
     // (shuffle on radio), must not fall through to the track list scrolling underneath.
     // Wheel still passes through (no onWheel), so the page scrolls under the bar.
@@ -99,8 +156,8 @@ Item {
             icon: Player.isEpisode ? "replay_10" : "shuffle"
             style: checked ? "filled" : "standard"
             iconFill: 1
-            containerColor: checked && enabled ? PlayerTheme.primary : "transparent"
-            iconColor: root._toggleIcon(checked, enabled)
+            containerColor: checked && enabled ? (root.classic ? PlayerTheme.fullShuffleOn : PlayerTheme.primary) : "transparent"
+            iconColor: root.classic ? root._fullToggle(checked, enabled, PlayerTheme.fgFullShuffleOn) : root._toggleIcon(checked, enabled)
             checkable: !Player.isEpisode
             autoToggle: false
             checked: !Player.isEpisode && Player.shuffle
@@ -113,7 +170,7 @@ Item {
             }
         } }
         // the full player's controls: filled primary pills around the tertiary play button
-        IconButton { scheme: PlayerTheme; icon: "skip_previous"; style: PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; enabled: Player.hasTrack; onClicked: Player.previous() }
+        IconButton { scheme: PlayerTheme; icon: "skip_previous"; style: root.classic ? PlayerTheme.fullSkipStyle : PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; enabled: Player.hasTrack; onClicked: Player.previous() }
         Item {
             implicitWidth: 52
             implicitHeight: 52
@@ -123,19 +180,19 @@ Item {
                 playing: Player.playing
                 loading: Player.buffering
                 spin: Player.isLocal === true      // пульт не перерисовывает окно каждый кадр
-                containerColor: PlayerTheme.playButtonContainer
-                iconColor: PlayerTheme.playButtonIcon
+                containerColor: root.classic ? PlayerTheme.fullPlayContainer : PlayerTheme.playButtonContainer
+                iconColor: root.classic ? PlayerTheme.fullPlayIcon : PlayerTheme.playButtonIcon
                 enabled: Player.hasTrack
                 onClicked: Player.togglePlay()
             }
         }
-        IconButton { scheme: PlayerTheme; icon: "skip_next"; style: PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; enabled: Player.hasTrack; onClicked: Player.next() }
+        IconButton { scheme: PlayerTheme; icon: "skip_next"; style: root.classic ? PlayerTheme.fullSkipStyle : PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; enabled: Player.hasTrack; onClicked: Player.next() }
         Fold { shown: root.roomForModes && !root.compact; IconButton { scheme: PlayerTheme;
             icon: Player.isEpisode ? "forward_30" : Player.repeat === "one" ? "repeat_one" : "repeat"
             style: checked ? "filled" : "standard"
             iconFill: 1
-            containerColor: checked && enabled ? PlayerTheme.primary : "transparent"
-            iconColor: root._toggleIcon(checked, enabled)
+            containerColor: checked && enabled ? (root.classic ? PlayerTheme.fullRepeatOn : PlayerTheme.primary) : "transparent"
+            iconColor: root.classic ? root._fullToggle(checked, enabled, PlayerTheme.fgFullRepeatOn) : root._toggleIcon(checked, enabled)
             checkable: !Player.isEpisode
             autoToggle: false
             checked: !Player.isEpisode && Player.repeat !== "off"

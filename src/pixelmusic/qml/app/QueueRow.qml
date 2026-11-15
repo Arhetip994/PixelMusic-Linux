@@ -63,17 +63,30 @@ Item {
     scale: dragging ? 1.025 : 1
     Behavior on scale { NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.OutCubic } }
 
-    // the lift shadow: soft, a little below the card, fading with the lift
-    RectangularShadow {
+    // the lift shadow, two layers as MD3 elevation: a wide ambient shadow that fades out gradually (pulled in by
+    // its negative spread, so no darker band sits at the card's edge) and a tight contact shadow under the card;
+    // both fade with the lift. QueueView's bleed leaves room for the ambient one's tail
+    Item {
         anchors.fill: bg
-        radius: bg.radius
-        offset.y: 3
-        blur: 10
-        spread: 0
-        color: Qt.alpha(root.scheme.shadow, Theme.dark ? 0.45 : 0.22)
         opacity: root.dragging ? 1 : 0
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
+        Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault; easing.type: Easing.OutCubic } }
+        RectangularShadow {
+            anchors.fill: parent
+            radius: bg.radius
+            offset.y: 8
+            blur: 22
+            spread: -4
+            color: Qt.alpha(root.scheme.shadow, Theme.dark ? 0.38 : 0.14)
+        }
+        RectangularShadow {
+            anchors.fill: parent
+            radius: bg.radius
+            offset.y: 2
+            blur: 6
+            spread: -1
+            color: Qt.alpha(root.scheme.shadow, Theme.dark ? 0.3 : 0.1)
+        }
     }
 
     Rectangle {

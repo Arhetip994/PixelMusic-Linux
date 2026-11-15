@@ -35,6 +35,9 @@ pub mod qobject {
         #[qproperty(QString, backdrop_mode, cxx_name = "backdropMode", READ, WRITE = set_backdrop_mode, NOTIFY = backdrop_mode_changed)]
         #[qproperty(f64, now_playing_blur, cxx_name = "nowPlayingBlur", READ, WRITE = set_now_playing_blur, NOTIFY = now_playing_blur_changed)]
         #[qproperty(f64, now_playing_drift, cxx_name = "nowPlayingDrift", READ, WRITE = set_now_playing_drift, NOTIFY = now_playing_drift_changed)]
+        #[qproperty(f64, player_veil, cxx_name = "playerVeil", READ, WRITE = set_player_veil, NOTIFY = player_veil_changed)]
+        #[qproperty(bool, player_black, cxx_name = "playerBlack", READ, WRITE = set_player_black, NOTIFY = player_black_changed)]
+        #[qproperty(QString, mini_player_style, cxx_name = "miniPlayerStyle", READ, WRITE = set_mini_player_style, NOTIFY = mini_player_style_changed)]
         #[qproperty(bool, ambient_background, cxx_name = "ambientBackground", READ, WRITE = set_ambient_background, NOTIFY = ambient_background_changed)]
         #[qproperty(bool, cover_spin, cxx_name = "coverSpin", READ, WRITE = set_cover_spin, NOTIFY = cover_spin_changed)]
         #[qproperty(bool, cover_pulse, cxx_name = "coverPulse", READ, WRITE = set_cover_pulse, NOTIFY = cover_pulse_changed)]
@@ -182,6 +185,9 @@ pub mod qobject {
         fn set_backdrop_mode(self: Pin<&mut Settings>, value: QString);
         fn set_now_playing_blur(self: Pin<&mut Settings>, value: f64);
         fn set_now_playing_drift(self: Pin<&mut Settings>, value: f64);
+        fn set_player_veil(self: Pin<&mut Settings>, value: f64);
+        fn set_player_black(self: Pin<&mut Settings>, value: bool);
+        fn set_mini_player_style(self: Pin<&mut Settings>, value: QString);
         fn set_ambient_background(self: Pin<&mut Settings>, value: bool);
         fn set_cover_spin(self: Pin<&mut Settings>, value: bool);
         fn set_cover_pulse(self: Pin<&mut Settings>, value: bool);
@@ -306,6 +312,15 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "nowPlayingDriftChanged"]
         fn now_playing_drift_changed(self: Pin<&mut Settings>);
+        #[qsignal]
+        #[cxx_name = "playerVeilChanged"]
+        fn player_veil_changed(self: Pin<&mut Settings>);
+        #[qsignal]
+        #[cxx_name = "playerBlackChanged"]
+        fn player_black_changed(self: Pin<&mut Settings>);
+        #[qsignal]
+        #[cxx_name = "miniPlayerStyleChanged"]
+        fn mini_player_style_changed(self: Pin<&mut Settings>);
         #[qsignal]
         #[cxx_name = "ambientBackgroundChanged"]
         fn ambient_background_changed(self: Pin<&mut Settings>);
@@ -802,6 +817,9 @@ settings! {
     backdrop_mode: QString = BackdropMode, set_backdrop_mode, backdrop_mode_changed;
     now_playing_blur: f64 = NowPlayingBlur, set_now_playing_blur, now_playing_blur_changed;
     now_playing_drift: f64 = NowPlayingDrift, set_now_playing_drift, now_playing_drift_changed;
+    player_veil: f64 = PlayerVeil, set_player_veil, player_veil_changed;
+    player_black: bool = PlayerBlack, set_player_black, player_black_changed;
+    mini_player_style: QString = MiniPlayerStyle, set_mini_player_style, mini_player_style_changed;
     ambient_background: bool = AmbientBackground, set_ambient_background, ambient_background_changed;
     cover_spin: bool = CoverSpin, set_cover_spin, cover_spin_changed;
     cover_pulse: bool = CoverPulse, set_cover_pulse, cover_pulse_changed;

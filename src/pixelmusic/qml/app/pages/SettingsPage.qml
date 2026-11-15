@@ -300,6 +300,7 @@ Page {
     }
 
     readonly property var backdropModes: [
+        { mode: "default", text: I18n.t("Default"), hint: I18n.t("Dark mode: the blurred cover under a dark veil. Light mode: the theme gradient with a faint hint of the cover") },
         { mode: "gauss", text: I18n.t("Soft"), hint: I18n.t("Even blur with no blotches or banding: the cover melts smoothly into color") },
         { mode: "glass", text: I18n.t("Frosted glass"), hint: I18n.t("The cover shows through as if behind frosted glass, with fine grain on top") },
         { mode: "palette", text: I18n.t("Gradient"), hint: I18n.t("No cover: a smooth gradient of theme colors") },
@@ -1092,6 +1093,66 @@ Page {
                         value: Settings.nowPlayingDrift
                         valueText: v => v > 0 ? Math.round(v * 100) + " %" : I18n.t("off")
                         onMoved: v => Settings.nowPlayingDrift = Math.round(v * 20) / 20
+                    }
+                }
+
+                // the veil over the cover in the Default and Black player backgrounds: 0–100 % here is 40–90 % opacity
+                SettingRow {
+                    readonly property bool applies: Theme.dark && (Settings.backdropMode === "default" || Settings.playerBlack
+                        || Settings.miniPlayerStyle === "default")
+                    title: I18n.t("Background veil")
+                    enabled: applies
+                    opacity: enabled ? 1 : 0.5
+                    description: applies ? I18n.t("{0}% · how dark the veil over the cover is: 0 lets the cover glow through, 100 is nearly solid", Math.round(Settings.playerVeil * 100))
+                        : I18n.t("For the Default and Black player backgrounds in dark mode")
+                    Slider {
+                        wheelEnabled: false     // колесо прокручивает страницу, а не меняет настройку
+                        width: 220
+                        from: 0
+                        to: 1
+                        stepSize: 0.01
+                        value: Settings.playerVeil
+                        valueText: v => Math.round(v * 100) + " %"
+                        onMoved: v => Settings.playerVeil = Math.round(v * 100) / 100
+                    }
+                }
+
+                // dark mode only: a black player sheet; the cover background (mode, blur strength) still glows through
+                SettingRow {
+                    visible: Theme.dark
+                    title: I18n.t("Black player background")
+                    description: I18n.t("The full player and the mini player on black, with the cover background showing through the veil")
+                    Switch { checked: Settings.playerBlack; onToggled: c => Settings.playerBlack = c }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Label { text: I18n.t("Mini player style"); type: "bodyLarge" }
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Repeater {
+                            model: [
+                                { mode: "expressive", text: I18n.t("Expressive") },
+                                { mode: "default", text: I18n.t("Default") }
+                            ]
+                            Chip {
+                                required property var modelData
+                                text: modelData.text
+                                selected: Settings.miniPlayerStyle === modelData.mode
+                                onClicked: Settings.miniPlayerStyle = modelData.mode
+                            }
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        text: Settings.miniPlayerStyle === "default"
+                            ? I18n.t("The full player's buttons on the blurred cover; black with Black player background")
+                            : I18n.t("Solid colored pill from the cover's colors")
+                        type: "bodyMedium"
+                        color: Theme.fgSurfaceVariant
                     }
                 }
 
