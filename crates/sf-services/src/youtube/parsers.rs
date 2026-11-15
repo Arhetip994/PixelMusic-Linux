@@ -258,6 +258,12 @@ pub(crate) fn parse_abbreviated(value: &str) -> i64 {
     digits.parse::<f64>().map_or(0, |number| (number * scale).round() as i64)
 }
 
+/// Image hosts that size an image by a URL suffix (`=w300-h300`, `=s300`): Google's (lh3.googleusercontent.com,
+/// yt3.ggpht.com). Not i.ytimg.com.
+fn resizable(url: &str) -> bool {
+    url.contains("googleusercontent.com") || url.contains("ggpht.com")
+}
+
 /// Normalize a thumbnail URL: fix protocol-relative URLs and malformed size parameters.
 fn normalize_thumbnail_url(url: &str) -> String {
     let url = url.trim();
@@ -269,8 +275,10 @@ fn normalize_thumbnail_url(url: &str) -> String {
         url.to_owned()
     };
     
-    // For Google/YouTube URLs, normalize size parameters
-    if url.contains("googleusercontent.com") || url.contains("ggpht.com") || url.contains("ytimg.com") {
+    // Google's image hosts take a size suffix; i.ytimg.com does not: its playlist covers carry a signed query
+    // (`studio_square_thumbnail.jpg?sqp=…&rs=…`) that a suffix breaks, and the image then answers 404 (user and
+    // community playlists showed no artwork)
+    if resizable(&url) {
         // Normalize =w0-h0 or missing size params to =w300-h300-l90-rj for square thumbnails
         // This preserves aspect ratio while ensuring a reasonable size
         let url = if SIZE_WH.is_match(&url) {
@@ -302,7 +310,7 @@ fn renderer_thumbnail(value: &Value) -> String {
 }
 
 /// Google/YouTube image URLs carry their size as a suffix; ask for `px` instead.
-/// Also handles ytimg.com URLs. Other hosts are left alone.
+/// i.ytimg.com and other hosts are left alone (see `resizable`).
 /// Fixes protocol-relative URLs (//...) by adding https: prefix.
 pub(crate) fn sized(url: &str, px: u32) -> String {
     let url = url.trim();
@@ -314,7 +322,7 @@ pub(crate) fn sized(url: &str, px: u32) -> String {
         url.to_owned()
     };
     
-    if !(url.contains("googleusercontent.com") || url.contains("ggpht.com") || url.contains("ytimg.com")) {
+    if !resizable(&url) {
         return url;
     }
     

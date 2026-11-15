@@ -200,10 +200,29 @@ ColumnLayout {
                         required property var modelData
                         required property int index
                         readonly property bool current: (modelData.trackId ?? "") !== "" && modelData.trackId === Player.trackId
+                        // the playing song: a solid primaryContainer pill with the queue's playing bars (QueueRow)
+                        readonly property color fg: current ? Theme.fgPrimaryContainer : Theme.fgSurface
+                        readonly property color fgSoft: current ? Qt.alpha(Theme.fgPrimaryContainer, 0.75) : Theme.fgSurfaceVariant
                         width: dailyCol.width
                         height: 56
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.topMargin: 2
+                            anchors.bottomMargin: 2
+                            radius: height / 2
+                            color: mixRow.current ? Theme.primaryContainer : Qt.alpha(Theme.primaryContainer, 0)
+                            Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
+                        }
                         StateLayer {
                             anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            anchors.topMargin: 2
+                            anchors.bottomMargin: 2
+                            radius: height / 2
+                            color: mixRow.fg
                             onClicked: Player.playFrom(Home.dailyMixTracks, mixRow.index)
                         }
                         TapHandler {
@@ -228,21 +247,28 @@ ColumnLayout {
                                     Layout.fillWidth: true
                                     text: mixRow.modelData.title ?? ""
                                     type: "titleSmall"
-                                    color: mixRow.current ? Theme.primary : Theme.fgSurface
+                                    color: mixRow.fg
                                     fade: true
                                 }
                                 Label {
                                     Layout.fillWidth: true
                                     text: mixRow.modelData.artists ?? ""
                                     type: "bodySmall"
-                                    color: Theme.fgSurfaceVariant
+                                    color: mixRow.fgSoft
                                     fade: true
                                 }
+                            }
+                            PlayingEqIcon {
+                                visible: mixRow.current
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 18
+                                color: mixRow.fg
+                                playing: Player.playing
                             }
                             Label {
                                 text: root.mmss(mixRow.modelData.durationMs)
                                 type: "bodySmall"
-                                color: Theme.fgSurfaceVariant
+                                color: mixRow.fgSoft
                             }
                             IconButton {
                                 id: more
@@ -304,13 +330,16 @@ ColumnLayout {
             const w = (t.title ?? "").trim().length + (t.artists ?? "").trim().length * 0.55
             return widthSteps[w < 18 ? 0 : w < 28 ? 1 : w < 40 ? 2 : w < 54 ? 3 : 4]
         }
-        // as many songs as fill the width plus two columns to scroll to (at least five columns), dealt column by
-        // column over the three rows like the target (the first rows take the remainder)
+        // as many songs as fill the widest window (the screen's width) plus two columns to scroll to (at least five
+        // columns), dealt column by column over the three rows like the target (the first rows take the remainder).
+        // Not the section's own width: every change of it (the sidebar or the queue opening) dealt new rows, so all
+        // the pills were rebuilt and their covers flashed as they loaded again.
+        readonly property real _span: Math.max(Screen.width, Screen.desktopAvailableWidth)
         readonly property var rows: {
             const songs = root.recent
-            if (songs.length === 0 || width <= 0)
+            if (songs.length === 0)
                 return []
-            const columns = Math.max(5, Math.ceil((width + gap) / (widthSteps[0] + gap)) + 2)
+            const columns = Math.max(5, Math.ceil((_span + gap) / (widthSteps[0] + gap)) + 2)
             const shown = songs.slice(0, columns * rowCount)
             const base = Math.floor(shown.length / rowCount), rest = shown.length % rowCount
             const targets = [base + (rest > 0 ? 1 : 0), base + (rest > 1 ? 1 : 0), base]

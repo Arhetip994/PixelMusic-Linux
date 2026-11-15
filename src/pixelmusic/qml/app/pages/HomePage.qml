@@ -43,6 +43,9 @@ Page {
             list.splice(Math.min(quick + 2, list.length), 0, { key: "lastfmFeed", kind: "lastfm" })
         if (hasMixes)
             list.splice(quick + 1, 0, { key: "homeMixes", kind: "mixes" })
+        // "Similar to <your most played artist>" a few shelves down, unless YouTube Music sent such a shelf itself
+        if (hasMixes && !list.some(s => /similar/i.test(s.strapline ?? "")))
+            list.splice(Math.min(quick + 4, list.length), 0, { key: "similarArtist", kind: "similar" })
         const ids = list.map(s => ({ key: String(s.key ?? ""), kind: String(s.kind ?? ""), variant: String(s.variant ?? "") }))
         for (let i = 0; i < ids.length; ++i) {
             const want = ids[i]
@@ -398,6 +401,7 @@ Page {
                         : section.key === "quickPicks" ? quickPicksShelf
                         : section.kind === "mixes" ? mixesShelf
                         : section.kind === "lastfm" ? lastfmShelf
+                        : section.kind === "similar" ? similarShelf
                         : section.kind === "tracks" ? tracksShelf
                         : rowShelf
                 }
@@ -503,6 +507,12 @@ Page {
         }
     }
 
+    // "Similar to <artist>": the artists paired with the one played most
+    Component {
+        id: similarShelf
+        HomeSimilarShelf { sectionPad: page.sectionPad }
+    }
+
     // "From your Last.fm": recent scrobbles, top albums, friends
     Component {
         id: lastfmShelf
@@ -556,6 +566,7 @@ Page {
             }
             SectionHeader {
                 text: tracksCol.shelfData.title ?? ""
+                tracks: tracksCol.tracks
                 actionText: page.canSeeAll(tracksCol.shelfData) ? I18n.t("See all")
                     : tracksCol.tracks.length > 8 ? (tracksCol.expanded ? I18n.t("Show less") : I18n.t("Show more")) : ""
                 onAction: page.canSeeAll(tracksCol.shelfData) ? page.openShelf(tracksCol.shelfData)

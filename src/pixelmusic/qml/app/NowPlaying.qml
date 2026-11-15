@@ -523,6 +523,11 @@ Item {
                         value: Player.volume
                         trackHeight: 14
                         handleHeight: 36
+                        // the mini player's colours: the empty part is the sheet's own ink at 20 %, so it never melts
+                        // into a dark cover's sheet (the default surface track did)
+                        activeColor: PlayerTheme.primary
+                        handleColor: PlayerTheme.primary
+                        inactiveColor: Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.2)
                         enabled: !volumeRow.locked
                         opacity: enabled ? 1 : Theme.stateLayer.disabledContent
                         onMoved: v => Player.volume = v

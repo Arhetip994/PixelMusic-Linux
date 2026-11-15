@@ -24,7 +24,7 @@ Item {
     Timer {
         interval: 40
         repeat: true
-        running: root.playing && root.visible && !Theme.reducedMotion
+        running: root.playing && root.visible && !Theme.reducedMotion && !Theme.resizing
         property double last: 0
         onRunningChanged: last = Date.now()
         onTriggered: {

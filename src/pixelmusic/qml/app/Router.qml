@@ -78,7 +78,8 @@ Item {
             // полную страницу в один кадр (фриз сотни мс на Home).
             const incubator = comp.incubateObject(
                 container,
-                { router: root, width: container.width, height: container.height, opacity: 0 },
+                // hidden from the start: a page that waits for its first visit (Smart Mix) sees it in onCompleted
+                { router: root, width: container.width, height: container.height, opacity: 0, visible: false },
                 Qt.Asynchronous)
             incubator.onStatusChanged = function() {
                 if (incubator.status !== Component.Ready)
@@ -449,11 +450,11 @@ Item {
             ParallelAnimation {
                 NumberAnimation { id: inFade; property: "opacity"; from: 0; to: 1; duration: 260; easing.type: Easing.OutCubic }
                 NumberAnimation {
-                    id: inMove; to: 0; duration: 560
+                    id: inMove; to: 0; duration: 400
                     easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate
                 }
                 NumberAnimation {
-                    id: inScale; property: "scale"; to: 1; duration: 560
+                    id: inScale; property: "scale"; to: 1; duration: 400
                     easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate
                 }
             }

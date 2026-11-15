@@ -166,6 +166,12 @@ unsafe fn apply_discrete_gpu(vendor: GpuVendor) {
 /// иначе загрузчики libglvnd / Mesa / драйвер NVIDIA зафиксируют устройство по умолчанию для процесса.
 fn apply_gpu_preference(settings: &SettingsStore) {
     let pref = settings.get_str(SettingKey::GpuPreference);
+    // Windows: the system's own per-app graphics setting, read when the app opens its graphics device (later in
+    // this start-up), so the choice takes effect on this launch already
+    if cfg!(target_os = "windows") {
+        mf_platform::system::windows_gpu_preference(&pref);
+        return;
+    }
     match pref.as_str() {
         "integrated" => {
             // SAFETY: вызывается в самом начале процесса в GUI-потоке до старта сторонних потоков
@@ -357,6 +363,8 @@ pub fn run(cli: Cli) -> i32 {
     let qml_guard = crate::qml_cache::prepare(cli.screenshot.is_none());
     let config_dir = cli.config_dir.clone().or_else(|| cli.screenshot.as_ref().map(|_| make_temp_dir()));
     let settings = SettingsStore::open(config_dir);
+    // full speed in Windows' power-saving modes (no EcoQoS throttling of the interface and the audio)
+    mf_platform::system::prefer_full_speed();
     apply_gpu_preference(&settings);
     apply_ui_scale(&settings);
 

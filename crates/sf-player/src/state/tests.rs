@@ -2700,7 +2700,7 @@ mod actor {
         let events = rig.send(Msg::YouTube(YtMsg::Event { seq, event: YtEvent::Playing { position_ms: 0 } })).await;
         let snapshot = rig.snapshot.borrow().clone();
         assert!(snapshot.playing && !snapshot.buffering);
-        assert_eq!(snapshot.codec, "AAC 128");
+        assert_eq!(snapshot.codec, "AAC · 128 kbps");
         assert_eq!(snapshot.duration_ms, 200_000);
         assert!(snapshot.device.as_ref().is_some_and(|device| device.is_this_computer));
         assert_eq!(uris(&snapshot.queue), [

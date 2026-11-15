@@ -65,12 +65,31 @@ impl YtStream {
         format!("{codec} {}", (self.bitrate + 500) / 1000)
     }
 
-    /// The now-playing quality chip: the codec, with the catalog in front when the stream is not YouTube's
-    /// own ("Monochrome · FLAC 16/44.1", "JioSaavn · AAC 320").
+    /// The now-playing quality chip: the format and the bitrate ("AAC · 320 kbps", "FLAC 16/44.1 · 921 kbps"),
+    /// whichever catalog the stream came from (the catalog's name is not shown). A lossless stream rarely states its
+    /// bitrate: it is then worked out from the file's size and length, and left out when neither is known.
     pub fn quality_label(&self) -> String {
-        match self.source.as_str() {
-            "Monochrome" | "JioSaavn" => format!("{} · {}", self.source, self.codec_label()),
-            _ => self.codec_label(),
+        let format = if self.is_lossless() {
+            self.codec_label()
+        } else if self.codecs.starts_with("mp4a") || self.mime.ends_with("mp4") {
+            "AAC".to_owned()
+        } else {
+            "AUDIO".to_owned()
+        };
+        match self.kbps() {
+            Some(kbps) => format!("{format} · {kbps} kbps"),
+            None => format,
+        }
+    }
+
+    /// Kilobits per second: the stated bitrate, else size × 8 / length.
+    fn kbps(&self) -> Option<i64> {
+        if self.bitrate > 0 {
+            return Some((self.bitrate + 500) / 1000);
+        }
+        match (self.content_length, self.duration_ms) {
+            (Some(bytes), ms) if bytes > 0 && ms > 0 => Some((bytes as i64 * 8 + ms / 2) / ms),
+            _ => None,
         }
     }
 }
@@ -241,13 +260,16 @@ mod tests {
     }
 
     #[test]
-    fn other_catalogs_lead_the_quality_label() {
+    fn the_quality_label_is_the_format_and_the_kbps_without_the_catalog() {
         let flac = YtStream { codecs: "flac".into(), sample_rate: 44_100, bit_depth: 16, source: "Monochrome".into(), ..Default::default() };
-        assert_eq!(flac.quality_label(), "Monochrome · FLAC 16/44.1");
+        assert_eq!(flac.quality_label(), "FLAC 16/44.1", "no bitrate known: the format alone");
+        // the bitrate from the file: 3 min at 921.6 kbps = 20 736 000 bytes
+        let sized = YtStream { content_length: Some(20_736_000), duration_ms: 180_000, ..flac.clone() };
+        assert_eq!(sized.quality_label(), "FLAC 16/44.1 · 922 kbps");
         let aac = YtStream { codecs: "mp4a.40.2".into(), bitrate: 320_000, source: "JioSaavn".into(), ..Default::default() };
-        assert_eq!(aac.quality_label(), "JioSaavn · AAC 320");
+        assert_eq!(aac.quality_label(), "AAC · 320 kbps");
         let youtube = YtStream { codecs: "mp4a.40.2".into(), bitrate: 129_482, source: "ANDROID_VR".into(), ..Default::default() };
-        assert_eq!(youtube.quality_label(), "AAC 129");
+        assert_eq!(youtube.quality_label(), "AAC · 129 kbps");
     }
 
     #[test]

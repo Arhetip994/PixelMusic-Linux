@@ -124,6 +124,11 @@ Page {
                 type: "bodyLarge"
                 color: Theme.fgSurfaceVariant
             }
+            // a page of songs: Play / Shuffle all of them
+            PlayShuffleButtons {
+                Layout.topMargin: 12
+                tracks: page.sections.filter(s => (s.kind ?? "") === "tracks").reduce((all, s) => all.concat(s.items ?? []), [])
+            }
             RowLayout {
                 visible: page.isNewReleases && page.releaseUris.length > 0
                 Layout.topMargin: 12

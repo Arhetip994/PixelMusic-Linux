@@ -48,12 +48,15 @@ pub mod qobject {
         #[qproperty(*mut QObject, albums, READ = albums_ptr, CONSTANT)]
         #[qproperty(*mut QObject, also_albums, cxx_name = "alsoAlbums", READ = also_albums_ptr, CONSTANT)]
         #[qproperty(*mut QObject, similar, READ = similar_ptr, CONSTANT)]
+        /// YouTube Music: the playlists the artist is featured on
+        #[qproperty(*mut QObject, playlists, READ = playlists_ptr, CONSTANT)]
         type ArtistData = super::ArtistDataRust;
 
         fn popular_ptr(self: &ArtistData) -> *mut QObject;
         fn albums_ptr(self: &ArtistData) -> *mut QObject;
         fn also_albums_ptr(self: &ArtistData) -> *mut QObject;
         fn similar_ptr(self: &ArtistData) -> *mut QObject;
+        fn playlists_ptr(self: &ArtistData) -> *mut QObject;
 
         #[qsignal]
         fn changed(self: Pin<&mut ArtistData>);
@@ -265,6 +268,7 @@ pub struct ArtistDataRust {
     albums: UniquePtr<DictListModel>,
     also_albums: UniquePtr<DictListModel>,
     similar: UniquePtr<DictListModel>,
+    playlists: UniquePtr<DictListModel>,
 }
 
 impl Default for ArtistDataRust {
@@ -277,6 +281,7 @@ impl Default for ArtistDataRust {
             albums: DictListModel::create(ModelKind::Album),
             also_albums: DictListModel::create(ModelKind::Album),
             similar: DictListModel::create(ModelKind::Artist),
+            playlists: DictListModel::create(ModelKind::Playlist),
         }
     }
 }
@@ -311,6 +316,10 @@ impl qobject::ArtistData {
         model_ptr(&self.also_albums)
     }
 
+    fn playlists_ptr(&self) -> *mut cxx_qt::QObject {
+        model_ptr(&self.playlists)
+    }
+
     fn similar_ptr(&self) -> *mut cxx_qt::QObject {
         model_ptr(&self.similar)
     }
@@ -332,6 +341,7 @@ impl qobject::ArtistData {
         with_model(&mut this.albums, |m| m.reset_rows(to_rows(&page.albums)));
         with_model(&mut this.also_albums, |m| m.reset_rows(to_rows(&page.also_albums)));
         with_model(&mut this.similar, |m| m.reset_rows(to_rows(&page.similar)));
+        with_model(&mut this.playlists, |m| m.reset_rows(to_rows(&page.playlists)));
         this.loading = false;
         this.error_text = QString::default();
         self.changed();

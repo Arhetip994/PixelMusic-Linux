@@ -669,7 +669,7 @@ async fn saavn_items_resolve_through_their_details() {
     let stream = chain.resolve_track(request.clone()).await.unwrap();
     assert_eq!(stream.url, "https://aac.saavncdn.com/123/0a1b2c3d4e5f_320.mp4");
     assert_eq!((stream.source.as_str(), stream.video_id.as_str()), ("JioSaavn", "saavn:track:nourl"));
-    assert_eq!(stream.quality_label(), "JioSaavn · AAC 320");
+    assert_eq!(stream.quality_label(), "AAC · 320 kbps", "the catalog is not named, the bitrate is");
     assert_eq!(stream.duration_ms, 261_000);
     // cached; the prefetch of the same song asks nothing either
     chain.resolve_track(request.clone()).await.unwrap();

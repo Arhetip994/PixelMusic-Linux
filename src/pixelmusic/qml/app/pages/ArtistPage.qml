@@ -186,8 +186,15 @@ Page {
                         icon: "radio"
                         style: "tonal"
                         size: "m"
-                        enabled: !Radio.locked
-                        onClicked: Radio.playStation("artist:" + page.artistId, page.info.name ?? "")
+                        // YouTube Music: the radio of the artist's top song (the artist and similar artists, as
+                        // YouTube Music's artist radio plays) — needs no Spotify sign-in, so it is not tied to
+                        // Radio.locked; a Spotify artist keeps its own station
+                        readonly property string seedSong: page.artist && page.artist.popular.count > 0
+                                                           ? (page.artist.popular.get(0).uri ?? "") : ""
+                        readonly property bool youtube: seedSong.startsWith("youtube:track:")
+                        enabled: youtube || !Radio.locked
+                        onClicked: youtube ? Radio.playStation(seedSong, I18n.t("“{0}” radio", page.info.name ?? ""))
+                                           : Radio.playStation("artist:" + page.artistId, page.info.name ?? "")
                     }
                     IconButton {
                         Accessible.name: page.followed ? I18n.t("Following") : I18n.t("Follow")

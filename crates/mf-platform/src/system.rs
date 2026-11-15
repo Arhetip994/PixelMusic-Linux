@@ -13,9 +13,74 @@ pub fn taskbar_dark() -> Option<bool> {
     imp::taskbar_dark()
 }
 
+/// Windows: the app keeps full speed in the power-saving modes. The process opts out of power throttling
+/// (EcoQoS: Windows otherwise puts the app on the slow, efficient cores and coarsens its timers when the power mode
+/// is set to battery saving), so playback, scrolling and animations do not stutter on battery. Elsewhere: nothing.
+pub fn prefer_full_speed() {
+    #[cfg(target_os = "windows")]
+    imp::prefer_full_speed();
+}
+
+/// Windows: the graphics card the system runs the app on — Windows' own per-app setting (Settings → System →
+/// Display → Graphics, `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`): "discrete" — high performance,
+/// "integrated" — power saving, anything else — the system's choice (the entry is removed). Elsewhere: nothing.
+pub fn windows_gpu_preference(choice: &str) {
+    #[cfg(target_os = "windows")]
+    imp::windows_gpu_preference(choice);
+    #[cfg(not(target_os = "windows"))]
+    let _ = choice;
+}
+
 #[cfg(target_os = "windows")]
 mod imp {
     use windows_sys::Win32::UI::WindowsAndMessaging::{SPI_GETCLIENTAREAANIMATION, SystemParametersInfoW};
+
+    pub fn prefer_full_speed() {
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentProcess, PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+            PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION, PROCESS_POWER_THROTTLING_STATE, ProcessPowerThrottling,
+            SetProcessInformation,
+        };
+        // both kinds of throttling under our control, and turned off (state 0) for this process
+        let state = PROCESS_POWER_THROTTLING_STATE {
+            Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION,
+            StateMask: 0,
+        };
+        // SAFETY: the pointer and size describe `state`, the PROCESS_POWER_THROTTLING_STATE this class asks for
+        let ok = unsafe {
+            SetProcessInformation(
+                GetCurrentProcess(),
+                ProcessPowerThrottling,
+                (&raw const state).cast(),
+                size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+            )
+        };
+        if ok == 0 {
+            tracing::debug!("power throttling opt-out refused: {}", std::io::Error::last_os_error());
+        }
+    }
+
+    pub fn windows_gpu_preference(choice: &str) {
+        let Ok(exe) = std::env::current_exe() else { return };
+        let exe = exe.to_string_lossy().trim_start_matches(r"\\?\").to_owned();
+        let Ok((key, _)) = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+            .create_subkey(r"Software\Microsoft\DirectX\UserGpuPreferences")
+        else {
+            return;
+        };
+        let result = match choice {
+            "discrete" => key.set_value(&exe, &"GpuPreference=2;"),
+            "integrated" => key.set_value(&exe, &"GpuPreference=1;"),
+            _ => match key.delete_value(&exe) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                other => other,
+            },
+        };
+        if let Err(error) = result {
+            tracing::debug!("graphics preference not saved: {error}");
+        }
+    }
 
     pub fn taskbar_dark() -> Option<bool> {
         let key = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)

@@ -178,7 +178,10 @@ fn helpers_read_times_counts_and_image_sizes() {
     );
     assert_eq!(sized("https://yt3.ggpht.com/y=s88-c-k", 640), "https://yt3.ggpht.com/y=s640");
     // ytimg.com URLs should get size params added
-    assert_eq!(sized("https://i.ytimg.com/vi/z/hq.jpg", 300), "https://i.ytimg.com/vi/z/hq.jpg=w300-h300-l90-rj");
+    // i.ytimg.com takes no size suffix (it answers 404): its URLs pass through, signed queries included
+    assert_eq!(sized("https://i.ytimg.com/vi/z/hq.jpg", 300), "https://i.ytimg.com/vi/z/hq.jpg");
+    let signed = "https://i.ytimg.com/pl_c/PLx/studio_square_thumbnail.jpg?sqp=CO&rs=AMzJ";
+    assert_eq!(sized(signed, 300), signed);
     
     // Test URL size clamping (min 48, max 1920)
     assert!(sized("https://lh3.googleusercontent.com/test", 10).contains("=w48-h48"));

@@ -207,13 +207,27 @@ QtObject {
     // previous / next — primary with an onPrimary icon; play / pause — tertiaryFixedDim with onTertiaryFixed;
     // shuffle on — primaryFixed / onPrimaryFixed, repeat on — secondaryFixed / onSecondaryFixed (BottomToggleRow);
     // off — no container (Android puts onSurface 7 % behind them), the icon in onPrimaryContainer
-    readonly property string fullSkipStyle: "accent"
-    // light mode: tertiaryFixedDim (a pale tone 80) washed out on the light sheet — the deep tertiary instead
-    readonly property color fullPlayContainer: dark ? tertiaryFixedDim : tertiary
-    readonly property color fullPlayIcon: dark ? fgTertiaryFixed : fgTertiary
-    readonly property color fullShuffleOn: primaryFixed
-    readonly property color fgFullShuffleOn: fgPrimaryFixed
-    readonly property color fullRepeatOn: secondaryFixed
-    readonly property color fgFullRepeatOn: fgSecondaryFixed
-    readonly property color fullToggleIdle: Qt.alpha(fgPrimaryContainer, 0.85)
+    // light mode keeps the look of 6cadb3f (PixelPlayer Desktop's PlaybackControlsRow): onPrimary pills with a primary
+    // icon around a primary play button; dark mode the Android sheet's roles below
+    readonly property string fullSkipStyle: dark ? "accent" : "accentSoft"
+    // light mode: tertiaryFixedDim (a pale tone 80) washed out on the light sheet — the deep tertiary instead.
+    // A grey cover (the Monochrome scheme) can give the same grey as the sheet: then primary / onPrimary, which is
+    // always far from primaryContainer, so the button never melts into the background
+    readonly property color _playTone: dark ? tertiaryFixedDim : tertiary
+    readonly property bool _playBlends: _contrast(_playTone, primaryContainer) < 1.8
+    readonly property color fullPlayContainer: !dark || _playBlends ? primary : _playTone
+    readonly property color fullPlayIcon: !dark || _playBlends ? fgPrimary : fgTertiaryFixed
+    function _lum(c) {
+        const ch = v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+        return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b)
+    }
+    function _contrast(a, b) {
+        const la = _lum(a), lb = _lum(b)
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+    }
+    readonly property color fullShuffleOn: dark ? primaryFixed : primary
+    readonly property color fgFullShuffleOn: dark ? fgPrimaryFixed : fgPrimary
+    readonly property color fullRepeatOn: dark ? secondaryFixed : primary
+    readonly property color fgFullRepeatOn: dark ? fgSecondaryFixed : fgPrimary
+    readonly property color fullToggleIdle: dark ? Qt.alpha(fgPrimaryContainer, 0.85) : primary
 }

@@ -5,13 +5,13 @@ import PixelMusic.Core
 // Кодек играющего трека (OGG 320…) — маленькая плашка над временем в мини-плеере.
 // У чужого устройства кодека нет: на этом месте RemoteLabel.
 // The artists come first: with `room` (what the row leaves after the artist names) the badge drops the
-// source ("Monochrome · FLAC 16/44.1" → "FLAC 16/44.1"), then elides, and hides when even that won't fit.
+// bitrate ("FLAC 16/44.1 · 922 kbps" → "FLAC 16/44.1"), then elides, and hides when even that won't fit.
 Rectangle {
     id: root
 
     property real room: Infinity
     readonly property string full: Player.codec
-    readonly property string brief: full.split(" · ").pop()
+    readonly property string brief: full.split(" · ")[0]
     readonly property real _fullWidth: fullMetrics.advanceWidth + 12
     readonly property real _briefWidth: briefMetrics.advanceWidth + 12
     readonly property bool _showFull: _fullWidth <= room

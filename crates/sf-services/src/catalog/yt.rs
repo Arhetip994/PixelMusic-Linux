@@ -64,6 +64,7 @@ pub(super) fn artist_page(page: youtube::ArtistPage) -> ArtistPage {
             }
         }
         result.similar.extend(buckets.artists);
+        result.playlists.extend(buckets.playlists);
     }
     result
 }

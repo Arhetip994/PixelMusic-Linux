@@ -1348,8 +1348,9 @@ Page {
                     }
                 }
                 // Видеокарта (Linux, гибридная графика): по умолчанию — как решит система; «Дискретная» включает PRIME offload
+                // Windows: the per-app graphics preference ("High performance" for Discrete)
                 SettingRow {
-                    visible: Qt.platform.os === "linux"
+                    visible: Qt.platform.os === "linux" || Qt.platform.os === "windows"
                     title: I18n.t("Graphics processor")
                     description: (Settings.gpuPreference === "integrated"
                                  ? I18n.t("Forces integrated graphics")

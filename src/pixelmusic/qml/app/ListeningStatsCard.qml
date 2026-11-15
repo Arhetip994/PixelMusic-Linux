@@ -49,6 +49,19 @@ ColumnLayout {
             const thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
             return list.filter(b => (b.label ?? "") <= thisMonth)
         }
+        // all time: every year with plays, and around this one the year before and the three after as empty pills
+        // until they come
+        if (range === "all") {
+            const now = new Date().getFullYear()
+            const byYear = {}
+            for (const b of list)
+                byYear[b.label] = b
+            const first = Math.min(now - 1, ...list.map(b => parseInt(b.label, 10)).filter(y => y > 0))
+            const years = []
+            for (let y = first; y <= now + 3; y++)
+                years.push(byYear[String(y)] ?? { label: String(y), seconds: 0, plays: 0, future: y > now })
+            return years
+        }
         if (range === "month" && monthMode === 1) {
             const weeks = []
             for (let i = 0; i < list.length; i++) {
@@ -64,8 +77,11 @@ ColumnLayout {
         return list
     }
     readonly property real _max: Math.max(1, ...chart.map(b => _value(b)))
-    // the latest bar (today, this week, this month, this year) unless one was picked
-    readonly property int _selected: picked >= 0 && picked < chart.length ? picked : chart.length - 1
+    // the latest bar (today, this week, this month, this year) unless one was picked; all time: this year, not the
+    // empty years after it
+    readonly property int _latest: range === "all" ? chart.findIndex(b => b.label === String(new Date().getFullYear()))
+                                                   : chart.length - 1
+    readonly property int _selected: picked >= 0 && picked < chart.length ? picked : _latest
     // days of the month scroll sideways (a fixed slot per day) instead of squeezing into the card
     readonly property bool _scrolls: range === "month" && monthMode === 0
 

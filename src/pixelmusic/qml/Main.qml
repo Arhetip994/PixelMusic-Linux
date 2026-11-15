@@ -111,6 +111,8 @@ Window {
         NumberAnimation { duration: 320; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized }
     }
     property bool _miniUsed: false
+    // Smart Mix made its automatic Last.fm recommendations this session (SmartMixPage): once per run of the app
+    property bool smartMixAutoStarted: false
     onMiniChanged: {
         if (mini) {
             _miniUsed = true
@@ -306,12 +308,27 @@ Window {
             running: visible && Player.playing && !nowPlaying.open
         }
 
-        // While the sidebar or the right panel changes width the page re-lays itself out each frame; Theme.resizing
-        // lets the costly parts sit it out (Label's edge-fade layer: one offscreen texture per overflowing title,
-        // reallocated and redrawn every frame as its width changed)
-        Binding { target: Theme; property: "resizing"; value: sidebarWidthAnim.running || panelWidthAnim.running }
+
+        // Sidebar / right panel resizing, measured (a bench animating Home between the two widths): with the page
+        // following the width, a quarter of the frames ran over 20 ms and the worst near 65 ms — Home re-laid its
+        // grids and the horizontal shelves built new tiles every frame. The page that only slides kept 16.7 ms.
+        // So while the panels animate, the page keeps the wider of its two widths (the card clips it) and is laid
+        // out at its final width once, when the motion ends; the panels and the card itself still move smoothly.
+        readonly property bool layoutAnimating: sidebarWidthAnim.running || panelWidthAnim.running
+        property bool pageFrozen: false
+        property real pageFreezeWidth: 0
+        onLayoutAnimatingChanged: {
+            if (layoutAnimating) {
+                const end = mainRow.width - sidebar.implicitWidth - mainRow.spacing - (win.panelShown ? 340 + mainRow.spacing : 0)
+                pageFreezeWidth = Math.max(pageHost.width, end)
+                pageFrozen = true
+            } else {
+                pageFrozen = false
+            }
+        }
 
         RowLayout {
+            id: mainRow
             anchors.fill: parent
             anchors.margins: 8
             anchors.leftMargin: 0
@@ -321,7 +338,7 @@ Window {
                 id: sidebar
                 Layout.fillHeight: true
                 Layout.preferredWidth: implicitWidth
-                Behavior on Layout.preferredWidth { NumberAnimation { id: sidebarWidthAnim; duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
+                Behavior on Layout.preferredWidth { NumberAnimation { id: sidebarWidthAnim; duration: Theme.lowPower ? Theme.motion.spatialFast : Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
                 router: router
                 compact: win.compactSidebar
                 drawer: win.layoutMode !== "full"
@@ -352,8 +369,9 @@ Window {
                     id: pageHost
                     anchors.top: topBar.bottom
                     anchors.left: parent.left
-                    anchors.right: parent.right
                     anchors.bottom: parent.bottom
+                    // frozen while the sidebar or the right panel animates (see layoutAnimating), the card clips it
+                    width: scene.pageFrozen ? scene.pageFreezeWidth : parent.width
 
                     Router {
                         id: router
@@ -361,7 +379,9 @@ Window {
                         // (600–1200 мс), все следующие мгновенны. Search живёт ради результатов: пересборка
                         // строк и обложек на каждый вход стоила 350–400 мс. Параметрические (плейлисты,
                         // артисты, категории настроек) — LRU-слоты в keepAliveSlots.
-                        keepAlive: ["home", "settings", "releases", "liked", "search"]
+                        // the sidebar's sections too (library, local files, downloads, Smart Mix): built quietly after
+                        // the start, then a click on the sidebar shows them at once instead of building them first
+                        keepAlive: ["home", "settings", "releases", "liked", "search", "library", "local", "downloads", "smartmix"]
                         keepAliveSlots: 6
                         pages: ({
                             home: Qt.resolvedUrl("app/pages/HomePage.qml"),
@@ -510,7 +530,7 @@ Window {
                 Layout.fillHeight: true
                 Layout.preferredWidth: win.panelShown ? 340 : 0
                 Layout.leftMargin: win.panelShown ? 0 : -8   // убирает зазор RowLayout у закрытой панели
-                Behavior on Layout.preferredWidth { NumberAnimation { id: panelWidthAnim; duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
+                Behavior on Layout.preferredWidth { NumberAnimation { id: panelWidthAnim; duration: Theme.lowPower ? Theme.motion.spatialFast : Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
                 Behavior on Layout.leftMargin { NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
                 clip: true
 

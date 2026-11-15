@@ -56,6 +56,12 @@ ColumnLayout {
                 onTapped: { root.expanded = !root.expanded; root.showMoreClicked() }
             }
         }
+
+        PlayShuffleButtons {
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 8
+            tracks: root.tracks
+        }
     }
 
     // 2-column grid of tracks

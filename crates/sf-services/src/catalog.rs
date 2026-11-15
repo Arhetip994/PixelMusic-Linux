@@ -93,6 +93,8 @@ pub struct ArtistPage {
     pub also_albums: Vec<AlbumItem>,
     /// related-artists (может быть пусто — закрыто для новых приложений)
     pub similar: Vec<ArtistItem>,
+    /// YouTube Music: the playlists the artist is featured on ("Featured on"); Spotify: none
+    pub playlists: Vec<PlaylistItem>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -258,6 +260,7 @@ pub fn artist_page(
         albums: latest_release_first(albums),
         also_albums: also.iter().map(map::album_item).collect(),
         similar: similar.iter().map(map::artist_item).collect(),
+        playlists: Vec::new(),
     }
 }
 

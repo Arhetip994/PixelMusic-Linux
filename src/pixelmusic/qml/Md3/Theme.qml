@@ -36,7 +36,9 @@ Item {
     property bool lowPower: false
     // Декоративные бесконечные анимации (дрейф фигур и фона, вращение и «дыхание» обложек, бегущая волна) стоят.
     // Индикаторы загрузки смотрят только на calm: на программном рендере они крутятся — это не украшение.
-    readonly property bool quiet: calm || lowPower
+    // …and for the moment the sidebar or the right panel changes width (resizing): the page re-lays itself out every
+    // frame then, and the decorative motion would only add redraws to those frames
+    readonly property bool quiet: calm || lowPower || resizing
     // the sidebar or the right panel is changing width (Main.qml): the page re-lays itself out every frame, so
     // per-item extras that cost a redraw per frame (Label's edge fade) pause until it settles
     property bool resizing: false

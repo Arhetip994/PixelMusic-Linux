@@ -42,10 +42,43 @@ TrackListPage {
                                 : mode === "similar-artists" ? seedArtistInput.trim() !== ""
                                 : mode === "tag" ? tag.trim() !== "" : true
 
-    Component.onCompleted: if (LastFm.connected) SmartMix.refreshFeed()
+    // the page is built ahead (Router keepAlive) while hidden: the feed and the automatic mix wait for the first visit
+    Component.onCompleted: if (visible) _firstVisit()
+    onVisibleChanged: if (visible) _firstVisit()
+    property bool _visited: false
+    function _firstVisit() {
+        if (_visited)
+            return
+        _visited = true
+        if (LastFm.connected)
+            SmartMix.refreshFeed()
+        autoRecommend()
+    }
     Connections {
         target: LastFm
-        function onConnectedChanged() { if (LastFm.connected) SmartMix.refreshFeed() }
+        function onConnectedChanged() {
+            if (LastFm.connected && page._visited) {
+                SmartMix.refreshFeed()
+                page.autoRecommend()
+            }
+        }
+    }
+    // Opened with Last.fm connected and no mix yet: a list of Last.fm recommendations is prepared by itself, once per
+    // run of the app. The mix lives in SmartMix (the app's, not the page's), so it stays until the app is closed.
+    readonly property bool autoPreparing: SmartMix.generating && _autoRun
+    property bool _autoRun: false
+    Connections {
+        target: SmartMix
+        function onMixChanged() { if (!SmartMix.generating) page._autoRun = false }
+    }
+    function autoRecommend() {
+        const w = page.Window.window
+        if (!LastFm.connected || SmartMix.generating || SmartMix.trackCount > 0 || !w || w.smartMixAutoStarted)
+            return
+        w.smartMixAutoStarted = true
+        _autoRun = true
+        mode = "recommendations"
+        generate()
     }
 
     function generate() {
@@ -81,6 +114,7 @@ TrackListPage {
     model: SmartMix.tracks
     emptyIcon: "star"
     emptyTitle: !LastFm.connected ? I18n.t("Connect Last.fm first")
+              : page.autoPreparing ? I18n.t("Preparing your recommendations…")
               : SmartMix.generating ? I18n.t("Making your mix…") : I18n.t("No mix yet")
     emptyText: !LastFm.connected ? I18n.t("Smart Mix uses your Last.fm listening history: connect your account in Settings")
              : SmartMix.mixError
@@ -111,6 +145,46 @@ TrackListPage {
         ColumnLayout {
             spacing: 12
             enabled: LastFm.connected && !SmartMix.generating
+
+            // the automatic recommendations on their way: an indicator and what it is doing
+            Rectangle {
+                visible: page.autoPreparing
+                Layout.fillWidth: true
+                Layout.maximumWidth: 560
+                implicitHeight: prepRow.implicitHeight + 24
+                radius: height / 2
+                color: Theme.secondaryContainer
+                RowLayout {
+                    id: prepRow
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 20
+                    spacing: 12
+                    LoadingIndicator {
+                        size: 36
+                        color: Theme.fgSecondaryContainer
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 0
+                        Label {
+                            Layout.fillWidth: true
+                            text: I18n.t("Preparing your recommendations…")
+                            type: "titleSmall"
+                            weight: 600
+                            color: Theme.fgSecondaryContainer
+                        }
+                        Label {
+                            Layout.fillWidth: true
+                            visible: text !== ""
+                            text: SmartMix.progress
+                            type: "bodySmall"
+                            color: Qt.alpha(Theme.fgSecondaryContainer, 0.8)
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
 
             Flow {
                 Layout.fillWidth: true
