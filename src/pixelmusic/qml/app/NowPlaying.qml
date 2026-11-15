@@ -151,15 +151,16 @@ Item {
         // "Default" is the original player: the blurred cover on the theme surface under a surface veil (dark in
         // dark mode, light in light mode). The other modes sit on the Expressive primaryContainer sheet
         readonly property bool _classic: Settings.backdropMode === "default"
-        // Settings → Black player background (dark mode only): a black sheet, the chosen cover background (its blur
-        // strength, blobs…) glowing through the same veil as Default
-        readonly property bool _black: Settings.playerBlack && Theme.dark
-        // Settings → Background veil: 0–100 % on the slider is 40–90 % here
-        readonly property real _veil: 0.4 + 0.5 * Settings.playerVeil
+        // Settings → Background veil (dark Default): one slider from a light veil to solid black. The veil thickens
+        // from 40 % to 100 % and its colour sinks from the surface toward black, so 0 lets the cover glow through and
+        // 100 is pure black
+        readonly property bool _darkDefault: _classic && Theme.dark
+        readonly property real _veil: 0.4 + 0.6 * Settings.playerVeil
+        readonly property color _veilColor: Qt.tint(PlayerTheme.surface, Qt.rgba(0, 0, 0, Settings.playerVeil))
         // light mode: a dark cover under a light veil turned the sheet muddy grey, so Default there is the Gradient
         // look (theme colours) with the blurred cover only faintly mixed in
         readonly property bool _lightDefault: _classic && !Theme.dark
-        readonly property color _sheet: _black ? "#000000" : _classic && Theme.dark ? PlayerTheme.surface : PlayerTheme.primaryContainer
+        readonly property color _sheet: _darkDefault ? _veilColor : PlayerTheme.primaryContainer
         Rectangle { anchors.fill: parent; color: content._sheet }
         // Режим, сила размытия и «плавание» — из настроек (см. CoverBackdrop); при смене трека фон
         // меняется вместе с цветами темы — под той же шторкой (см. TrackBackdrop)
@@ -167,7 +168,7 @@ Item {
         // colour (darker sheet, same text tone), so the full player skips it
         TrackBackdrop {
             anchors.fill: parent
-            visible: content._black || Settings.backdropMode !== "gauss"
+            visible: Settings.backdropMode !== "gauss"
             // на весь экран — крупная обложка (CoverBackdrop размер в URL не подменяет)
             source: Player.coverLarge !== "" ? Player.coverLarge : Player.cover
             // Default blurs the cover the same way Soft does elsewhere (light mode: the gradient, see _lightDefault)
@@ -195,11 +196,11 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: content._sheet
-            visible: content._black || Settings.backdropMode !== "gauss"
+            visible: Settings.backdropMode !== "gauss"
             // thick enough that the title and controls (onPrimaryContainer) read as well as on Soft's solid sheet:
             // the cover / blobs at 40–58 % mottled the text colour; the texture still shows through.
-            // Default and Black: the Background veil setting in dark mode; light Default — the Gradient's veil
-            opacity: content._black || (content._classic && Theme.dark) ? content._veil
+            // dark Default: the Background veil setting; light Default — the Gradient's veil
+            opacity: content._darkDefault ? content._veil
                 : content._lightDefault ? 0.66
                 : ({ gauss: 0.66, glass: 0.8, palette: 0.66, blobs: 0.76 })[Settings.backdropMode] ?? 0.8
             Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }

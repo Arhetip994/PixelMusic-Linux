@@ -63,13 +63,13 @@ Item {
     readonly property color _fg: PlayerTheme.fgPrimaryContainer
     readonly property color _fgSoft: Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.75)
     // Settings → Mini player style: "default" — the full player's transport buttons on the Default background
-    // (the blurred cover under the surface veil, or black with Black player background in dark mode)
+    // (the blurred cover under the Background veil, which reaches solid black in dark mode)
     readonly property bool classic: Settings.miniPlayerStyle === "default"
-    // Settings → Black player background (dark mode): the pill goes black in either style, the cover glowing through
-    readonly property bool _black: Settings.playerBlack && Theme.dark
     // light mode: the Gradient look (theme colours) with a hint of the blurred cover, as the full player's Default
     readonly property bool _lightClassic: classic && !Theme.dark
-    readonly property color _sheet: _black ? "#000000" : classic && Theme.dark ? PlayerTheme.surface : PlayerTheme.primaryContainer
+    // dark Default: the full player's Background veil — 40 % of the surface up to solid black
+    readonly property color _sheet: classic && Theme.dark ? Qt.tint(PlayerTheme.surface, Qt.rgba(0, 0, 0, Settings.playerVeil))
+        : PlayerTheme.primaryContainer
     function _fullToggle(on, enabled, onColor) {
         return !enabled ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.3) : on ? onColor : PlayerTheme.fullToggleIdle
     }
@@ -94,7 +94,7 @@ Item {
     Item {
         id: coverBg
         anchors.fill: bg
-        visible: root.classic || root._black
+        visible: root.classic
         layer.enabled: visible
         layer.effect: MultiEffect {
             maskEnabled: true
@@ -125,7 +125,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             color: root._sheet
-            opacity: root._lightClassic ? 0.66 : 0.4 + 0.5 * Settings.playerVeil
+            opacity: root._lightClassic ? 0.66 : 0.4 + 0.6 * Settings.playerVeil
         }
     }
     Rectangle {
