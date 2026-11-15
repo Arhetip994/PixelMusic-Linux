@@ -10,6 +10,9 @@ import PixelMusic.Core
 // sync offset, romanization, save as .lrc, reset to what the sources find). Both are popups over the whole window.
 Row {
     id: root
+    // colour roles for the two toolbar buttons: the app's by default; the full player passes PlayerTheme (the cover's
+    // colours, as its other buttons). Undeclared, the buttons were handed nothing and drew every colour black.
+    property var scheme: Theme
     spacing: 4
 
     function say(text) {

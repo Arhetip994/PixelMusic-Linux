@@ -28,38 +28,65 @@ ColumnLayout {
 
     spacing: 16
 
-    function reload() { summary = Extras.stats(range); picked = -1 }
+    function reload() { summary = Extras.stats(ranges[rangeIndex]); picked = -1 }
     Component.onCompleted: reload()
     onRangeIndexChanged: reload()
+    // Month: day by day (scrolling, today the last bar) or week by week
+    property int monthMode: 0
+    onMonthModeChanged: picked = -1
     Connections {
         target: Extras
         function onStatsChanged() { root.reload() }
     }
 
     function _value(b) { return metric === 0 ? (b.seconds ?? 0) : (b.plays ?? 0) }
-    readonly property real _max: Math.max(1, ...buckets.map(b => _value(b)))
-    readonly property int _biggest: {
-        let best = -1, most = 0
-        for (let i = 0; i < buckets.length; i++) {
-            const v = _value(buckets[i])
-            if (v > most) { most = v; best = i }
+    // The bars as shown: the year stops at this month (it is the last bar), the month can be grouped into weeks
+    // (week 1 = days 1–7 …), all time has one bar per year
+    readonly property var chart: {
+        const list = buckets
+        if (range === "year") {
+            const now = new Date()
+            const thisMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
+            return list.filter(b => (b.label ?? "") <= thisMonth)
         }
-        return best
+        if (range === "month" && monthMode === 1) {
+            const weeks = []
+            for (let i = 0; i < list.length; i++) {
+                const w = Math.floor(i / 7)
+                if (!weeks[w])
+                    weeks[w] = { label: list[i].label, last: list[i].label, week: w + 1, seconds: 0, plays: 0 }
+                weeks[w].last = list[i].label
+                weeks[w].seconds += list[i].seconds ?? 0
+                weeks[w].plays += list[i].plays ?? 0
+            }
+            return weeks
+        }
+        return list
     }
-    readonly property int _selected: picked >= 0 && picked < buckets.length ? picked : _biggest
+    readonly property real _max: Math.max(1, ...chart.map(b => _value(b)))
+    // the latest bar (today, this week, this month, this year) unless one was picked
+    readonly property int _selected: picked >= 0 && picked < chart.length ? picked : chart.length - 1
+    // days of the month scroll sideways (a fixed slot per day) instead of squeezing into the card
+    readonly property bool _scrolls: range === "month" && monthMode === 0
 
+    function _monthIndex(b) { return parseInt((b.label ?? "").split("-")[1], 10) - 1 }
     function _barLabel(b, i) {
         if (range === "today") {
             const h = parseInt(b.label, 10)
             return Qt.formatTime(new Date(2000, 0, 1, h, 0), "h AP").replace(":00", "")
         }
+        // Jan, Feb … Nov
         if (range === "year")
-            return Qt.locale().standaloneMonthName(i, Locale.NarrowFormat)
+            return Qt.locale().standaloneMonthName(_monthIndex(b), Locale.ShortFormat)
+        if (range === "all")
+            return b.label
+        if (range === "month" && monthMode === 1)
+            return I18n.t("Week {0}", b.week)
         const d = new Date(b.label + "T12:00:00")
         if (range === "week")
             return Qt.locale().standaloneDayName(d.getDay(), Locale.ShortFormat)
-        // month: every fifth day, the rest stay quiet
-        return (d.getDate() === 1 || d.getDate() % 5 === 0) ? String(d.getDate()) : ""
+        // month, day by day: every day has its own slot
+        return String(d.getDate())
     }
     function _barTitle(b) {
         if (range === "today") {
@@ -67,8 +94,16 @@ ColumnLayout {
             return I18n.t("{0}–{1}", Qt.formatTime(new Date(2000, 0, 1, h, 0), "h AP"),
                           Qt.formatTime(new Date(2000, 0, 1, (h + 3) % 24, 0), "h AP"))
         }
+        // November 2026
         if (range === "year")
-            return Qt.locale().standaloneMonthName(parseInt(b.label.split("-")[1], 10) - 1, Locale.LongFormat)
+            return Qt.locale().standaloneMonthName(_monthIndex(b), Locale.LongFormat) + " " + (b.label ?? "").split("-")[0]
+        if (range === "all")
+            return b.label
+        if (range === "month" && monthMode === 1) {
+            const from = new Date(b.label + "T12:00:00"), to = new Date(b.last + "T12:00:00")
+            return I18n.t("Week {0}", b.week) + " · " + from.getDate() + "–" + to.getDate() + " "
+                   + Qt.locale().standaloneMonthName(to.getMonth(), Locale.LongFormat)
+        }
         return new Date(b.label + "T12:00:00").toLocaleDateString(Qt.locale(), "dddd, d MMMM")
     }
     function _metricText(b) {
@@ -230,16 +265,19 @@ ColumnLayout {
                     spacing: 2
                     Label {
                         Layout.fillWidth: true
+                        // the year in the title (Year: "2026 at a glance"); all time: the years side by side
                         text: root.range === "today" ? I18n.t("Today by the hour")
                             : root.range === "week" ? I18n.t("Weekly rhythm")
-                            : root.range === "month" ? I18n.t("Month at a glance") : I18n.t("Year at a glance")
+                            : root.range === "month" ? I18n.t("Month at a glance")
+                            : root.range === "year" ? I18n.t("{0} at a glance", new Date().getFullYear())
+                            : I18n.t("Year by year")
                         type: "titleLarge"
                         weight: 700
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: root._selected >= 0
-                              ? root._barTitle(root.buckets[root._selected]) + " · " + root._metricText(root.buckets[root._selected])
+                        text: root._selected >= 0 && root._selected < root.chart.length
+                              ? root._barTitle(root.chart[root._selected]) + " · " + root._metricText(root.chart[root._selected])
                               : I18n.t("Nothing listened in this period yet")
                         type: "bodyMedium"
                         color: Theme.fgSurfaceVariant
@@ -261,16 +299,41 @@ ColumnLayout {
                 currentIndex: root.metric
                 onActivated: i => root.metric = i
             }
-            Item {
-                id: bars
+            // Month: day by day or week by week
+            ButtonGroup {
+                visible: root.range === "month"
+                model: [I18n.t("Days"), I18n.t("Weeks")]
+                size: "xs"
+                currentIndex: root.monthMode
+                onActivated: i => root.monthMode = i
+            }
+            Flickable {
+                id: barsView
                 Layout.fillWidth: true
                 Layout.preferredHeight: 168
                 clip: true
-                readonly property real gap: root.buckets.length > 12 ? 3 : 8
-                readonly property real barWidth: Math.max(4, (width - gap * (root.buckets.length - 1)) / Math.max(1, root.buckets.length))
+                contentWidth: bars.width
+                contentHeight: height
+                flickableDirection: Flickable.HorizontalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentWidth > width + 1
+                SideScroll { flickable: barsView }
+                // today is the last bar: open at the end
+                function toEnd() { contentX = Math.max(0, contentWidth - width) }
+                onContentWidthChanged: toEnd()
+                onWidthChanged: toEnd()
+                Connections { target: root; function onChartChanged() { Qt.callLater(barsView.toEnd) } }
+
+            Item {
+                id: bars
+                // a fixed 40 px slot per day while the month scrolls; else the bars share the card's width
+                width: root._scrolls ? Math.max(barsView.width, root.chart.length * 40) : barsView.width
+                height: barsView.height
+                readonly property real gap: root._scrolls ? 8 : root.chart.length > 12 ? 3 : 8
+                readonly property real barWidth: Math.max(4, (width - gap * (root.chart.length - 1)) / Math.max(1, root.chart.length))
                 readonly property real plotHeight: height - 24
                 Repeater {
-                    model: root.buckets
+                    model: root.chart
                     Item {
                         id: bar
                         required property var modelData
@@ -322,6 +385,7 @@ ColumnLayout {
                         }
                     }
                 }
+            }
             }
         }
     }

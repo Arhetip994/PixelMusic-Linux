@@ -378,5 +378,10 @@
   "Your playlist tree, folders included": "Sua árvore de playlists, com pastas",
   "Nothing in your library yet": "Ainda não há nada na sua biblioteca",
   "Pitch black": "Preto puro",
-  "Pure black background for AMOLED screens; cards and panels stay just above black": "Fundo preto puro para telas AMOLED; cartões e painéis ficam só um pouco acima do preto"
+  "Pure black background for AMOLED screens; cards and panels stay just above black": "Fundo preto puro para telas AMOLED; cartões e painéis ficam só um pouco acima do preto",
+  "Days": "Dias",
+  "Weeks": "Semanas",
+  "Week {0}": "Semana {0}",
+  "{0} at a glance": "{0} num relance",
+  "Year by year": "Ano a ano"
 }

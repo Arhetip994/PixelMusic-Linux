@@ -193,6 +193,7 @@ Item {
             // lyrics search and options, on the tab switcher's line while the lyrics are shown
             LyricsTools {
                 id: lyricsTools
+                scheme: PlayerTheme
                 Layout.alignment: Qt.AlignVCenter
                 visible: root.tab === "lyrics" && (!root.layoutCompact || root.sheetOpen) && Player.hasTrack
             }
