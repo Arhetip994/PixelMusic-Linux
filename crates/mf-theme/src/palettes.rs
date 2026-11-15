@@ -120,6 +120,10 @@ pub fn palette(choice: &str) -> Option<&'static Palette> {
     PALETTES.iter().find(|p| p.id.eq_ignore_ascii_case(id))
 }
 
+/// The light surfaces' chroma at most: about a tonal-spot neutral palette's, so they read near white with the
+/// palette's hue only hinted.
+const LIGHT_SURFACE_CHROMA: f64 = 6.0;
+
 fn hct(argb: u32) -> Hct {
     Hct::new(Rgb::from_u32(argb))
 }
@@ -161,20 +165,22 @@ pub fn palette_scheme(p: &Palette, dark: bool, chosen: Variant, contrast: f64) -
         return scheme;
     }
 
-    // Light: the palette's colours themselves.
-    let surface_chroma = chroma(p.surface).min(16.0);
+    // Light: the palette's colours themselves on the containers; the surfaces as PixelPlayer Desktop builds them
+    // (toComposeColorScheme: the neutral palette at tones 98 / 96 / 94 / 92 / 90 / 100), only a hint of the palette's
+    // hue — at chroma 16 the background and the page cards came out plainly tinted (Ocean Breeze read cyan all over)
+    let surface_chroma = chroma(p.surface).min(LIGHT_SURFACE_CHROMA);
     let surface = |tone: f64| tone_of(p.surface, surface_chroma, tone);
     for (name, tone) in [
-        ("background", 97.0),
-        ("surface", 97.0),
+        ("background", 98.0),
+        ("surface", 98.0),
         ("surfaceBright", 98.0),
-        ("surfaceContainerLowest", 99.0),
-        ("surfaceContainerLow", 95.0),
-        ("surfaceContainer", 93.0),
-        ("surfaceContainerHigh", 91.0),
-        ("surfaceContainerHighest", 89.0),
-        ("surfaceVariant", 89.0),
-        ("surfaceDim", 86.0),
+        ("surfaceContainerLowest", 100.0),
+        ("surfaceContainerLow", 96.0),
+        ("surfaceContainer", 94.0),
+        ("surfaceContainerHigh", 92.0),
+        ("surfaceContainerHighest", 90.0),
+        ("surfaceVariant", 90.0),
+        ("surfaceDim", 87.0),
         ("inverseOnSurface", 95.0),
     ] {
         set(name, surface(tone));
@@ -256,6 +262,18 @@ mod tests {
                     let ratio = contrast_ratio(s.colors[bg], s.colors[fg]);
                     assert!(ratio >= 4.5, "{} dark={dark}: {fg} on {bg} is {ratio:.2}", p.id);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn light_palette_surfaces_are_near_white_with_a_hint_of_hue() {
+        for p in &PALETTES {
+            let s = palette_scheme(p, false, Variant::TonalSpot, 0.0);
+            for role in ["background", "surfaceContainer", "surfaceContainerHigh"] {
+                let c = hct(s.colors[role]);
+                assert!(c.get_chroma() <= LIGHT_SURFACE_CHROMA + 1.0, "{} {role}: chroma {:.1}", p.id, c.get_chroma());
+                assert!(c.get_tone() >= 91.0, "{} {role}: tone {:.1}", p.id, c.get_tone());
             }
         }
     }

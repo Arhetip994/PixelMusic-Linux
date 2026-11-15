@@ -352,12 +352,12 @@ Page {
                 Catalog.search(field.text, page.type)
         }
     }
-    LoadingIndicator {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 48
-        size: 64
-        contained: true
+    // results on their way: placeholder rows where the songs will land (no spinner, no jump when they arrive)
+    SkeletonList {
+        Layout.fillWidth: true
+        Layout.topMargin: 8
         visible: !page.idle && page.signedIn && Catalog.searchState === "loading"
+        rows: 8
     }
 
     // ---- Результаты ----

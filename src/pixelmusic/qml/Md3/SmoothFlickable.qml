@@ -10,6 +10,7 @@ Flickable {
     readonly property alias minY: scroll.minY
     readonly property alias maxY: scroll.maxY
 
+    signal pulledPastTop(real dy)
     function scrollTo(y, animated) { scroll.scrollTo(y, animated) }
 
     boundsBehavior: Flickable.StopAtBounds
@@ -20,6 +21,7 @@ Flickable {
     SmoothScroll {
         id: scroll
         flickable: root
+        onPulledPastTop: dy => root.pulledPastTop(dy)
         parent: root   // не в contentItem: индикатор не должен прокручиваться вместе с содержимым
     }
 }

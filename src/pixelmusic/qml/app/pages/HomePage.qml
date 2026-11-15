@@ -143,6 +143,95 @@ Page {
     // Прокрутить к сцене радио (после «Радио по треку» из меню)
     function scrollToTop() { flickable.contentY = 0 }
 
+    // ---- Refresh: pull past the top (wheel / touchpad) or click the "Home" title ----
+    // the feed is fetched again; the shelves on screen stay until the new ones arrive and are swapped in place by
+    // _syncShelves (no blank page, no jump), with the pull indicator spinning until the feed is in
+    readonly property bool loadingFeed: Home.loading || (youtubeHome && Home.youtubeLoading)
+    property bool refreshing: false
+    function refresh() {
+        flickable.scrollTo(flickable.minY, true)
+        refreshing = true
+        refreshFloor.restart()
+        if (signedIn)
+            Home.refresh(true)
+        if (youtubeHome)
+            Home.refreshYouTube(true)
+    }
+    // the spinner stays at least this long: a cached answer would only flash it
+    Timer { id: refreshFloor; interval: 700; onTriggered: if (!page.loadingFeed) page.refreshing = false }
+    onLoadingFeedChanged: if (!loadingFeed && !refreshFloor.running) refreshing = false
+    // how far the pull has come (px), easing back when the wheel lets go
+    property real pull: 0
+    // about four deliberate wheel notches (150 px × 0.5 each), or a long touchpad pull
+    readonly property real pullThreshold: 300
+    // A pull counts only once the page has rested at the top: the wheel notches and touchpad inertia that carry a
+    // normal scroll up to the top kept arriving after it got there and refreshed the feed by themselves
+    property real _lastMoved: 0
+    property real _lastRefresh: 0
+    property real _lastPullEvent: 0
+    readonly property int restBeforePull: 450
+    Connections {
+        target: page.flickable
+        function onContentYChanged() { page._lastMoved = Date.now() }
+        function onPulledPastTop(dy) {
+            const now = Date.now()
+            const quiet = now - page._lastPullEvent
+            page._lastPullEvent = now
+            if (page.refreshing || now - page._lastRefresh < 1500)
+                return
+            // a pull already under way keeps going; a new one waits until the page has stood still at the top and
+            // the wheel has paused (touchpad inertia streams on without a pause, so it never starts one)
+            if (page.pull <= 0 && (now - page._lastMoved < page.restBeforePull || quiet < 250))
+                return
+            page.pull = Math.min(page.pullThreshold * 1.2, page.pull + dy * 0.5)
+            pullRelease.restart()
+            if (page.pull >= page.pullThreshold) {
+                page.pull = 0
+                page._lastRefresh = now
+                page.refresh()
+            }
+        }
+    }
+    Timer { id: pullRelease; interval: 350; onTriggered: page.pull = 0 }
+
+    // the pull indicator: drops in from the top edge, turns with the pull, spins while the feed loads
+    Item {
+        id: pullIndicator
+        parent: page
+        z: 10
+        x: (page.width - width) / 2
+        width: 48
+        height: 48
+        readonly property real shown: page.refreshing ? 1 : Math.min(1, page.pull / page.pullThreshold)
+        y: -height + shown * (height + 16)
+        opacity: shown > 0.02 ? 1 : 0
+        visible: opacity > 0
+        Behavior on y { enabled: !Theme.reducedMotion; NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsFast } }
+        Rectangle {
+            id: pullDisc
+            anchors.fill: parent
+            radius: width / 2
+            color: Theme.primaryContainer
+        }
+        Elevation { target: pullDisc; level: 2 }
+        LoadingIndicator {
+            anchors.centerIn: parent
+            size: 36
+            visible: page.refreshing
+        }
+        Icon {
+            anchors.centerIn: parent
+            visible: !page.refreshing
+            name: "refresh"
+            size: 24
+            weight: 600
+            color: Theme.fgPrimaryContainer
+            rotation: 300 * pullIndicator.shown
+            opacity: 0.4 + 0.6 * pullIndicator.shown
+        }
+    }
+
     // ---- Плитки: открыть / играть / меню ----
     function openEntry(e) {
         const k = e.kind ?? ""
@@ -229,32 +318,36 @@ Page {
         visible: page.signedIn || page.youtubeHome
         spacing: 12
 
-        // Загрузка: заглушки без мерцания
-        ColumnLayout {
-            visible: (Home.loading || (page.youtubeHome && Home.youtubeLoading)) && page.shelfCount === 0
+        // Loading: placeholder section cards shaped like the real shelves (same card, padding, title and tile sizes),
+        // softly pulsing, so the shelves land where the placeholders stood instead of pushing the page about
+        Column {
+            id: skeleton
+            visible: page.loadingFeed && page.shelfCount === 0
             Layout.fillWidth: true
             spacing: 12
-            SectionHeader { text: I18n.t("Quick access") }
-            GridLayout {
-                Layout.fillWidth: true
-                columns: page.compact ? 2 : 3
-                columnSpacing: 10
-                rowSpacing: 10
-                Repeater {
-                    model: 6
-                    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 64; radius: Theme.shape.large; color: Theme.surfaceContainerHigh }
+            SequentialAnimation on opacity {
+                running: skeleton.visible && !Theme.reducedMotion && !Theme.quiet
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.55; duration: 700; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1; duration: 700; easing.type: Easing.InOutSine }
+            }
+            // quick picks: a list of rows in two columns
+            SkeletonSection {
+                width: parent.width
+                SkeletonList {
+                    width: parent.width
+                    columns: page.compact ? 1 : 2
+                    rows: page.compact ? 4 : 8
+                    numbered: true
+                    tone: Theme.surfaceContainerHighest
+                    pulse: false
                 }
             }
-            SectionHeader { text: I18n.t("Recently played") }
-            // полка заглушек шире страницы: обрезается, а не растягивает колонку (и сцену над ней)
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: skelRow.implicitHeight
-                clip: true
-                Row {
-                    id: skelRow
-                    spacing: 24
-                    Repeater { model: 6; SkeletonTile { size: 168 } }
+            Repeater {
+                model: 2
+                SkeletonSection {
+                    width: skeleton.width
+                    SkeletonTiles { width: parent.width }
                 }
             }
         }
@@ -290,6 +383,8 @@ Page {
                 visible: shelf.item !== null && shelf.item.implicitHeight > 0
                 radius: Theme.shape.extraLarge
                 color: card ? Theme.surfaceContainerHigh : "transparent"
+                // a new shelf fades in in place (the feed's next page, a refresh) instead of popping
+                NumberAnimation on opacity { from: 0; to: 1; duration: Theme.motion.effectsDefault; running: !Theme.reducedMotion }
                 Loader {
                     id: shelf
                     readonly property var shelfData: section.shelfData
@@ -308,11 +403,23 @@ Page {
         }
 
         // the next page of the YouTube Music feed is on its way
-        LoadingIndicator {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 8
-            size: 40
-            visible: page.youtubeHome && Home.youtubeLoading && page.shelfCount > 0
+        SkeletonSection {
+            Layout.fillWidth: true
+            visible: page.youtubeHome && Home.youtubeLoading && page.shelfCount > 0 && !page.refreshing
+            opacity: 0.7
+            SkeletonList {
+                width: parent.width
+                columns: page.compact ? 1 : 2
+                rows: page.compact ? 4 : 8
+                numbered: true
+                tone: Theme.surfaceContainerHighest
+            }
+        }
+        SkeletonSection {
+            Layout.fillWidth: true
+            visible: page.youtubeHome && Home.youtubeLoading && page.shelfCount > 0 && !page.refreshing
+            opacity: 0.7
+            SkeletonTiles { width: parent.width }
         }
         Button {
             Layout.alignment: Qt.AlignHCenter
@@ -335,6 +442,33 @@ Page {
     QueueHistoryShelf {
         Layout.fillWidth: true
         Layout.topMargin: 12
+    }
+
+    // a placeholder shelf: the section card with a title bar, its content below
+    component SkeletonSection: Rectangle {
+        id: skelCard
+        default property alias body: skelBody.data
+        implicitHeight: skelBody.implicitHeight + 2 * page.sectionPad
+        radius: Theme.shape.extraLarge
+        color: Theme.surfaceContainerHigh
+        Column {
+            id: skelBody
+            x: page.sectionPad
+            y: page.sectionPad
+            width: skelCard.width - 2 * page.sectionPad
+            spacing: 16
+            Rectangle { width: 180; height: 22; radius: 11; color: Theme.surfaceContainerHighest }
+        }
+    }
+    // a row of placeholder tiles, cut at the card's edge
+    component SkeletonTiles: Item {
+        implicitHeight: skelTileRow.implicitHeight
+        clip: true
+        Row {
+            id: skelTileRow
+            spacing: 16
+            Repeater { model: 8; SkeletonTile { size: 168; tone: Theme.surfaceContainerHighest } }
+        }
     }
 
     // Quick Picks - 2-column track grid with numbering (SoundWave style)

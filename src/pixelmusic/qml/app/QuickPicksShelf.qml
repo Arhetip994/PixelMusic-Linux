@@ -223,6 +223,17 @@ ColumnLayout {
                         }
                     }
                 }
+
+                // drag the song into the queue (QueueView, the mini player's queue button): they read trackData()
+                function trackData() { return trackItem.modelData }
+                QueueDragSource {
+                    anchors.fill: parent
+                    z: 5
+                    source: trackItem
+                    enabled: (trackItem.modelData.uri ?? "") !== "" || trackItem.trackId !== ""
+                    title: trackItem.title
+                    cover: trackItem.cover
+                }
             }
         }
     }

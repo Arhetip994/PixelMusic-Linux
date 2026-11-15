@@ -193,10 +193,13 @@ QtObject {
 
     // Transport, as PixelPlayer Desktop's PlaybackControlsRow (the same roles in light and dark mode; the tones
     // flip with the scheme): previous / next — onPrimary circles with a primary icon; play / pause — primary with
-    // an onPrimary icon; shuffle / repeat — on: primary / onPrimary, off: onPrimary at 45 % with a primary icon
+    // an onPrimary icon; shuffle / repeat — on: primary / onPrimary, off: no container (the round onPrimary 45 %
+    // backing read as a stray disc next to the pills), just the primary icon
     readonly property string transportStyle: "accentSoft"
     readonly property color playButtonContainer: primary
     readonly property color playButtonIcon: fgPrimary
     readonly property color toggleIdle: primary
-    readonly property color toggleIdleContainer: Qt.alpha(fgPrimary, 0.45)
+    readonly property color toggleIdleContainer: "transparent"
+    // the mini player's off toggles (MiniPlayerBar): onPrimaryContainer at 60 %
+    readonly property color toggleIdleMini: Qt.alpha(fgPrimaryContainer, 0.6)
 }

@@ -30,9 +30,10 @@ Item {
         anchors.fill: parent
         shape: root.shape
         color: root.tileColor
-        // a white tile on a light surface needs an edge to read as a tile
-        strokeColor: Theme.dark ? "transparent" : Qt.alpha(Theme.outlineVariant, 0.9)
-        strokeWidth: Theme.dark ? 0 : 1
+        // no outline: on the light theme it drew a hard grey ring round the tile (the white tile reads on the
+        // tinted surfaces it sits on by itself, as the launcher icon does)
+        strokeColor: "transparent"
+        strokeWidth: 0
     }
 
     Image {

@@ -89,6 +89,14 @@ Item {
             weight: 500
             opacity: root.showTitle ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
+            // a page that can refresh (Home) does so from its title, like the app bars of the streaming apps
+            MouseArea {
+                width: parent.paintedWidth
+                height: parent.height
+                enabled: root.showTitle && !!root.page && typeof root.page.refresh === "function"
+                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: root.page.refresh()
+            }
         }
 
         // Кнопки страницы (поиск по библиотеке, сортировка, вид) — page.toolbar: Component

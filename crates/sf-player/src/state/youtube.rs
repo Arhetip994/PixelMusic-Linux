@@ -596,8 +596,18 @@ impl YtLane {
             self.pos = self.pos.min(self.order.len() - 1);
             self.reshuffle();
         } else {
-            self.order = (0..self.items.len()).collect();
-            self.pos = at;
+            // the list order again from the current track on, wrapping round to the songs before it, so every song
+            // still to come stays to come: jumping to the current track's own slot left only the songs after it, and
+            // with few of those autoplay fetched a new radio
+            let pos = self.pos.min(self.order.len() - 1);
+            let len = self.items.len();
+            let mut played = vec![false; len];
+            for &index in &self.order[..pos] {
+                played[index] = true;
+            }
+            let upcoming = (1..len).map(|k| (at + k) % len).filter(|&index| !played[index]);
+            self.order = self.order[..pos].iter().copied().chain(std::iter::once(at)).chain(upcoming).collect();
+            self.pos = pos;
         }
     }
 
@@ -1165,6 +1175,22 @@ mod tests {
         // shuffle off: the list order again, after the current track
         lane.set_shuffle(false);
         assert_eq!(uris(&lane)[1], (QueueSection::Context, "t6".into()));
+    }
+
+    #[test]
+    fn shuffle_off_keeps_every_song_still_to_come_and_asks_no_radio() {
+        let ids: Vec<String> = (0..20).map(|i| format!("t{i}")).collect();
+        let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+        // the last song of the list is playing: on its own slot only nothing would be left, autoplay would ask
+        let mut lane = started(&refs, 19);
+        lane.set_shuffle(true);
+        let before = uris(&lane).len();
+        lane.set_shuffle(false);
+        let rows = uris(&lane);
+        assert_eq!(rows.len(), before);
+        assert_eq!(rows[0], (QueueSection::Current, "t19".into()));
+        assert_eq!(rows[1], (QueueSection::Context, "t0".into()));
+        assert!(lane.autoplay_seed().is_none());
     }
 
     #[test]

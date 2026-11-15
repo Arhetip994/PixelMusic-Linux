@@ -62,7 +62,7 @@ Item {
     readonly property color _fg: PlayerTheme.fgPrimaryContainer
     readonly property color _fgSoft: Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.75)
     function _toggleIcon(on, enabled) {
-        return !enabled ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.3) : on ? PlayerTheme.fgPrimary : PlayerTheme.dark ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.6) : PlayerTheme.toggleIdle
+        return !enabled ? Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.3) : on ? PlayerTheme.fgPrimary : PlayerTheme.toggleIdleMini
     }
 
     function _time(ms) {
@@ -104,7 +104,7 @@ Item {
             checkable: !Player.isEpisode
             autoToggle: false
             checked: !Player.isEpisode && Player.shuffle
-            enabled: Player.hasTrack && (Player.isEpisode || Player.source !== "radio")
+            enabled: Player.hasTrack && (Player.isEpisode || Player.source !== "radio" || Player.contextUri.startsWith("youtube:"))
             onClicked: {
                 if (Player.isEpisode)
                     Player.seekRelative(-10000)

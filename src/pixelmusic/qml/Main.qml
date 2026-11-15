@@ -315,7 +315,10 @@ Window {
                 id: sidebar
                 Layout.fillHeight: true
                 Layout.preferredWidth: implicitWidth
-                Behavior on Layout.preferredWidth { NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
+                // rail ↔ full: the layout snaps once and only the sidebar's own panel animates over the content edge
+                // (animating this width re-laid the whole page every frame: the home grid, lists — it stuttered on
+                // battery); the slide into the drawer still eases here
+                Behavior on Layout.preferredWidth { enabled: sidebar.drawer; NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
                 router: router
                 compact: win.compactSidebar
                 drawer: win.layoutMode !== "full"
@@ -323,12 +326,72 @@ Window {
             }
 
             // Контент
-            Surface {
-                id: content
+            // Rail ↔ full: the sidebar's slot changes in one step, so the page lays itself out once at its new width;
+            // what moves with the rail is only the card's left edge (edgeInset → 0): its background slides, and a
+            // clip reveals (or the rail covers) the page, which stays put. Animating the layout width instead re-laid
+            // every page each frame and stuttered on battery.
+            Item {
+                id: contentSlot
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                // under the sidebar: its panel grows over the edge, and shrinks back off it, above the card
+                z: -1
+                property real edgeInset: 0
+                NumberAnimation {
+                    id: edgeSlide
+                    target: contentSlot
+                    property: "edgeInset"
+                    to: 0
+                    duration: Theme.motion.spatialDefault
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Theme.motion.emphasized
+                }
+                function slideFrom(delta) {
+                    edgeSlide.stop()
+                    if (Theme.reducedMotion || Math.abs(delta) < 1) {
+                        edgeInset = 0
+                        return
+                    }
+                    edgeInset += delta
+                    edgeSlide.start()
+                }
+                Connections {
+                    target: sidebar
+                    property real last: sidebar.implicitWidth
+                    function onImplicitWidthChanged() {
+                        const w = sidebar.implicitWidth
+                        // only the rail ↔ full switch; the drawer modes still ease the slot itself
+                        if (!sidebar.drawer && last > 0 && w > 0)
+                            contentSlot.slideFrom(last - w)
+                        last = w
+                    }
+                }
+
+                // the card: its left edge where the rail has got to
+                Rectangle {
+                    x: contentSlot.edgeInset
+                    width: parent.width - x
+                    height: parent.height
+                    radius: content.radius
+                    color: Qt.alpha(content._base, 1 - content.translucency)
+                }
+                // the page, at its final place and width; while the edge is still to the right of it, cut there
+                Item {
+                    id: contentClip
+                    x: Math.max(0, contentSlot.edgeInset)
+                    width: parent.width - x
+                    height: parent.height
+                    clip: contentSlot.edgeInset > 0.5
+
+            Surface {
+                id: content
+                x: -contentClip.x
+                width: contentSlot.width
+                height: contentSlot.height
                 level: "container"
                 translucency: ambient.visible ? 0.3 : 0
+                // the card is drawn by contentSlot (its edge slides with the rail)
+                color: "transparent"
                 clip: true
 
                 TopBar {
@@ -496,6 +559,8 @@ Window {
                     compact: win.layoutMode !== "full" || win.width < 860
                     z: 3
                     onOpenNowPlaying: center => nowPlaying.show(center)
+                }
+            }
                 }
             }
 

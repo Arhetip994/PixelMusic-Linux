@@ -19,6 +19,8 @@ Item {
     property bool current: false
     property bool draggable: false
     property bool dragging: false
+    // false: the list owns the gesture (QueueView: a floating card, so the row may scroll out and be rebuilt mid-drag)
+    property bool ownDrag: true
     property bool compact: false
     readonly property bool hovered: rowHover.hovered
     readonly property real rowGap: 8
@@ -120,7 +122,7 @@ Item {
             }
             HoverHandler { id: handleHover; enabled: root.draggable; cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor }
             DragHandler {
-                enabled: root.draggable
+                enabled: root.draggable && root.ownDrag
                 target: null
                 xAxis.enabled: false
                 grabPermissions: PointerHandler.CanTakeOverFromAnything

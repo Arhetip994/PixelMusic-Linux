@@ -83,6 +83,16 @@ Item {
     // the move is on its way to the player: the list's own move/displaced transitions stay off, the rows already
     // stand where the move puts them
     property bool _committing: false
+    // The held card is drawn above the list (ghost), as PixelPlayer Desktop's reorderable list: the list owns the
+    // gesture (dragArea), so the row under it may scroll out of view and be culled or rebuilt without the card
+    // vanishing or the drag getting stuck (dragging the last song to the top auto-scrolls far past it)
+    property var _ghostTrack: ({})
+    property bool _ghostCurrent: false
+    property real _slotY: 0                // the lifted row's slot in list content coordinates
+    property real _ghostStart: 0           // its viewport y when lifted
+    property real _ghostY: 0
+    property bool _ghostGlide: false
+    readonly property bool ghostShown: dragFrom >= 0
     readonly property int dragRows: dragSection === "manual" ? manualRows : dragSection === "context" ? contextShown : 0
 
     function beginDrag(section, m) {
@@ -98,11 +108,13 @@ Item {
         _dy = 0
         _scrollStart = list.contentY
     }
-    function updateDrag(dy, sceneY) {
+    function updateDrag(dy, pointerY) {
         if (dragFrom < 0)
             return
         _dy = dy
-        _pointerY = list.mapFromItem(null, 0, sceneY).y
+        _pointerY = pointerY
+        _ghostGlide = false
+        _ghostY = Math.max(-rowHeight * 0.3, Math.min(list.height - rowHeight * 0.7, _ghostStart + dy))
         _retarget()
     }
     function _retarget() {
@@ -121,12 +133,16 @@ Item {
             settleTimer.restart()
             glideTimer.restart()
             dragOffset = (dragTo - dragFrom) * rowHeight
+            _ghostGlide = true
+            _ghostY = _slotY + dragOffset - list.contentY
         } else {
             // back to where it was, gliding
             glideTimer.stop()
             settleTimer.restart()
             settleTimer.interval = Theme.motion.spatialFast + 20
             dragOffset = 0
+            _ghostGlide = true
+            _ghostY = _slotY - list.contentY
         }
     }
     function _resetDrag() {
@@ -144,6 +160,7 @@ Item {
         dragTo = -1
         dragOffset = 0
         _dragUid = undefined
+        _ghostGlide = false
         Qt.callLater(() => root.shiftAnimated = true)
         // a few frames later: the list lays the moved rows out first, without its move/displaced transitions
         if (_committing)
@@ -271,7 +288,21 @@ Item {
     }
 
     // the playing song is the first row: «locate» shows once it has scrolled out of view
-    readonly property bool _currentOutOfView: list.visible && list.contentY - list.originY > rowHeight * 0.75
+    // with hysteresis and a short settle: one threshold made the button flick in and out (and the header buttons
+    // shuffle sideways) on every wheel step near it
+    property bool _currentOutOfView: false
+    readonly property real _scrolledBy: list.visible ? list.contentY - list.originY : 0
+    on_ScrolledByChanged: locateSettle.restart()
+    Timer {
+        id: locateSettle
+        interval: 120
+        onTriggered: {
+            if (!root._currentOutOfView && root._scrolledBy > root.rowHeight * 1.25)
+                root._currentOutOfView = true
+            else if (root._currentOutOfView && root._scrolledBy < root.rowHeight * 0.4)
+                root._currentOutOfView = false
+        }
+    }
 
     // «Играет на …», «Next Up» и «Играет из …» — над списком, не прокручиваются
     Column {
@@ -326,10 +357,8 @@ Item {
         model: root.queue
         boundsBehavior: Flickable.StopAtBounds
         acceptedButtons: Qt.NoButton
-        // While a card is held the whole section stays built: ListView culls a delegate by its layout slot, not by
-        // the held card's offset, so dragging far down (with the edge auto-scroll) destroyed the lifted row — the card
-        // vanished and its slot stayed open as an empty gap.
-        cacheBuffer: root.dragFrom >= 0 ? Math.max(400, (root.dragRows + 2) * (root.rowHeight + 48)) : 400
+        // the held card floats above the list (ghost), so its own row may be culled while it is away
+        cacheBuffer: 400
         // без reuseItems: замер на живой очереди показал регрессию — при частых диффах плеера
         // переклейка данных на переиспользуемые делегаты дороже обновления биндингов на месте
 
@@ -363,9 +392,6 @@ Item {
             height: hidden ? 0 : headerHeight + root.rowHeight
             visible: !hidden
             z: lifted ? 10 : 0
-            // safety net: if the held row goes anyway (the queue replaced under it), the drag ends and the rows
-            // close up instead of leaving the slot open with no card in it
-            Component.onDestruction: if (lifted && root._pointerY >= 0) root.endDrag()
 
             Loader {
                 id: head
@@ -414,17 +440,15 @@ Item {
                     NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate }
                 }
                 // свойства корня делегата трогают переходы ListView (add/displaced), поэтому приглушаем строку
-                opacity: root.dragFrom >= 0 && cell.sec !== root.dragSection && cell.sec !== "current" ? 0.45 : 1
+                opacity: cell.lifted ? 0 : root.dragFrom >= 0 && cell.sec !== root.dragSection && cell.sec !== "current" ? 0.45 : 1
                 Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
                 track: root.rowData(cell.index, cell.model.uid, cell.model.title)
                 current: cell.sec === "current"
                 draggable: cell.movable
-                dragging: cell.lifted
+                ownDrag: false
+                dragging: false
                 activeFocusOnTab: true
                 onActivated: Player.playQueueRow(cell.model.uid)
-                onDragStarted: root.beginDrag(cell.sec, cell.m)
-                onDragMoved: (dy, sceneY) => root.updateDrag(dy, sceneY)
-                onDragFinished: root.endDrag()
                 Keys.onPressed: e => {
                     if (!(e.modifiers & Qt.ControlModifier) || !cell.movable)
                         return
@@ -488,6 +512,79 @@ Item {
         }
     }
     SmoothScroll { flickable: list; wheelStep: Settings.wheelStep; visible: list.visible }
+
+    // Presses on a row's drag handle start a drag here; every other press goes on to the row (play, menu)
+    MouseArea {
+        id: dragArea
+        anchors.fill: list
+        visible: list.visible
+        z: 6
+        acceptedButtons: Qt.LeftButton
+        preventStealing: true
+        property real pressY: 0
+        property int pending: -1           // pressed on this model row's handle, not moved far enough yet
+        onPressed: mouse => {
+            pending = -1
+            if (!Player.queueReorderable || settleTimer.running || root._committing) {
+                mouse.accepted = false
+                return
+            }
+            const p = mapToItem(list.contentItem, mouse.x, mouse.y)
+            const i = list.indexAt(p.x, p.y)
+            const item = i >= 0 ? list.itemAtIndex(i) : null
+            const inRow = item ? p.y - item.y - item.headerHeight : -1
+            // the handle: the 32 px square at the card's left (QueueRow), a little wider to be easy to catch
+            const hx = mouse.x - root._bleed
+            if (!item || !item.movable || inRow < 0 || inRow > root.rowHeight || hx < 4 || hx > 50) {
+                mouse.accepted = false
+                return
+            }
+            pending = i
+            pressY = mouse.y
+        }
+        onPositionChanged: mouse => {
+            if (pending >= 0 && Math.abs(mouse.y - pressY) >= 4) {
+                const item = list.itemAtIndex(pending)
+                if (item) {
+                    root._ghostTrack = root.queue.get(pending)
+                    root._ghostCurrent = false
+                    root._slotY = item.y + item.headerHeight
+                    root._ghostStart = root._slotY - list.contentY
+                    root._ghostY = root._ghostStart
+                    root.beginDrag(item.sec, item.m)
+                }
+                pending = -1
+            }
+            if (root.dragFrom >= 0)
+                root.updateDrag(mouse.y - pressY, mouse.y)
+        }
+        onReleased: { pending = -1; if (root.dragFrom >= 0) root.endDrag() }
+        onCanceled: { pending = -1; if (root.dragFrom >= 0) root.endDrag() }
+    }
+
+    // the held card: follows the pointer, grows a little and casts the lift shadow; on release it glides into its slot
+    Item {
+        anchors.fill: list
+        z: 5
+        clip: true
+        visible: root.ghostShown
+        QueueRow { scheme: root.scheme;
+            x: root._bleed
+            y: root._ghostY
+            width: parent.width - 2 * root._bleed
+            height: root.rowHeight
+            compact: root.compact
+            track: root._ghostTrack
+            current: root._ghostCurrent
+            draggable: true
+            ownDrag: false
+            dragging: !root._ghostGlide
+            Behavior on y {
+                enabled: root._ghostGlide
+                NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate }
+            }
+        }
+    }
 
     // трек, брошенный из списков: на этом компьютере — на место, на другом устройстве — в конец
     DropArea {

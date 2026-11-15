@@ -451,7 +451,7 @@ Item {
                     IconButton { scheme: PlayerTheme;
                         icon: Player.isEpisode ? "replay_10" : "shuffle"; size: "m"
                         checkable: !Player.isEpisode; autoToggle: false; checked: !Player.isEpisode && Player.shuffle
-                        enabled: Player.isEpisode || Player.source !== "radio"
+                        enabled: Player.isEpisode || Player.source !== "radio" || Player.contextUri.startsWith("youtube:")
                         style: checked ? "filled" : "standard"
                         iconFill: 1
                         id: shuffleBtn

@@ -207,12 +207,13 @@ Page {
     readonly property bool playingHere: Radio.active && Radio.stationUri !== "" && Radio.stationUri.indexOf(artistId) >= 0
                                         || artist && Player.trackId !== "" && artist.popular.find("trackId", Player.trackId) >= 0
 
-    LoadingIndicator {
-        Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: 48
-        size: 64
-        contained: true
+    // the artist on its way: placeholder rows where the popular tracks will land
+    SkeletonList {
+        Layout.fillWidth: true
+        Layout.topMargin: 8
         visible: page.artist && page.artist.loading
+        rows: 5
+        numbered: true
     }
     EmptyState {
         Layout.alignment: Qt.AlignHCenter

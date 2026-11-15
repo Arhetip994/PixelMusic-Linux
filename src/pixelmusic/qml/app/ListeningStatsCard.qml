@@ -265,6 +265,7 @@ ColumnLayout {
                 id: bars
                 Layout.fillWidth: true
                 Layout.preferredHeight: 168
+                clip: true
                 readonly property real gap: root.buckets.length > 12 ? 3 : 8
                 readonly property real barWidth: Math.max(4, (width - gap * (root.buckets.length - 1)) / Math.max(1, root.buckets.length))
                 readonly property real plotHeight: height - 24
@@ -286,7 +287,9 @@ ColumnLayout {
                             anchors.horizontalCenter: parent.horizontalCenter
                             // a pill at most 36 px wide in its slot; an empty day is a dot
                             width: Math.min(parent.width, 36)
-                            height: Math.max(width, bars.plotHeight * bar.v / root._max)
+                            // clamped: the value and the max change one after the other (switching range or metric),
+                            // and for a moment the ratio ran far past 1 — the bar shot out of its card before settling
+                            height: Math.max(width, Math.max(0, bars.plotHeight) * Math.min(1, bar.v / Math.max(1, root._max)))
                             radius: width / 2
                             color: bar.selected ? Theme.primary : bar.v > 0 ? Theme.secondaryContainer : Theme.surfaceContainerHighest
                             Behavior on height { enabled: !Theme.reducedMotion; NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate } }

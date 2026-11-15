@@ -23,7 +23,7 @@ Item {
     implicitHeight: 48
     implicitWidth: 320
 
-    // on = primary / onPrimary, off = secondaryContainer / onSecondaryContainer (solid); disabled = the off look
+    // on = primary / onPrimary, off = surfaceContainerHighest at 60 % / onSurfaceVariant (QueueSidePanel); disabled = the off look
     // with a faded icon (the container stays solid so the group keeps its shape)
     component SegButton: Item {
         id: seg
@@ -42,7 +42,7 @@ Item {
             bottomLeftRadius: seg.startRadius
             topRightRadius: seg.endRadius
             bottomRightRadius: seg.endRadius
-            color: seg.on && seg.enabled ? seg.scheme.primary : seg.scheme.secondaryContainer
+            color: seg.on && seg.enabled ? seg.scheme.primary : Qt.alpha(seg.scheme.surfaceContainerHighest, 0.6)
             Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
         }
         Icon {
@@ -51,8 +51,8 @@ Item {
             size: 20
             fill: 1
             weight: 600
-            color: !seg.enabled ? Qt.alpha(seg.scheme.fgSecondaryContainer, 0.38)
-                 : seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSecondaryContainer
+            color: !seg.enabled ? Qt.alpha(seg.scheme.fgSurfaceVariant, 0.38)
+                 : seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSurfaceVariant
             Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
         }
         StateLayer {
@@ -62,7 +62,7 @@ Item {
             bottomLeftRadius: seg.startRadius
             topRightRadius: seg.endRadius
             bottomRightRadius: seg.endRadius
-            color: seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSecondaryContainer
+            color: seg.on ? seg.scheme.fgPrimary : seg.scheme.fgSurfaceVariant
             onClicked: seg.clicked()
         }
     }
@@ -97,16 +97,19 @@ Item {
         }
         Row {
             spacing: 2
+            // «Locate» keeps its slot even while hidden: a slot that grew and shrank moved the whole group by a
+            // fraction of a pixel each frame (the buttons shivered while scrolling); now it only fades and scales in place
             Item {
-                width: root.locateShown ? 40 : 0
+                width: 40
                 height: 36
-                clip: true
-                Behavior on width { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
                 SegButton { scheme: root.scheme;
-                    x: root.locateShown ? 0 : 20
+                    anchors.fill: parent
+                    enabled: root.locateShown
+                    visible: opacity > 0
                     opacity: root.locateShown ? 1 : 0
-                    Behavior on x { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
-                    Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsDefault } }
+                    scale: root.locateShown ? 1 : 0.7
+                    Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsFast } }
+                    Behavior on scale { NumberAnimation { duration: Theme.motion.spatialFast; easing.type: Easing.OutCubic } }
                     icon: "target"
                     startRadius: 26
                     onClicked: root.locate()
@@ -116,7 +119,7 @@ Item {
                 icon: "shuffle"
                 on: Player.shuffle
                 startRadius: root.locateShown ? 4 : 26
-                enabled: Player.hasTrack && Player.source !== "radio"
+                enabled: Player.hasTrack && (Player.source !== "radio" || Player.contextUri.startsWith("youtube:"))
                 onClicked: Player.shuffle = !Player.shuffle
             }
             SegButton { scheme: root.scheme;

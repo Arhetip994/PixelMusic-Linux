@@ -24,6 +24,8 @@ Item {
     readonly property bool debugWheel: typeof pixelmusicDebugWheel !== "undefined" && pixelmusicDebugWheel
 
     signal userScrolled()   // колесо, тачпад или индикатор — не программная прокрутка
+    // the wheel or touchpad keeps pushing up while the list already stands at its top (pull to refresh); dy > 0 px
+    signal pulledPastTop(real dy)
 
     function clampY(y) { return Math.max(minY, Math.min(maxY, y)) }
 
@@ -72,6 +74,12 @@ Item {
         orientation: Qt.Vertical
         onWheel: event => {
             root.userScrolled()
+            if (root.flickable.contentY <= root.minY + 0.5 && !smooth.running) {
+                const up = event.phase !== Qt.NoScrollPhase ? event.pixelDelta.y
+                         : event.angleDelta.y !== 0 ? event.angleDelta.y / 120 * root.wheelStep : event.pixelDelta.y
+                if (up > 0 && event.phase !== Qt.ScrollMomentum)
+                    root.pulledPastTop(up)
+            }
             if (root.debugWheel)
                 console.log(`wheel: type=${event.device.type} name="${event.device.name}" phase=${event.phase}`
                             + ` angle=${event.angleDelta.y} pixel=${event.pixelDelta.y} inverted=${event.inverted}`)

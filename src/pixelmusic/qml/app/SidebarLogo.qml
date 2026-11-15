@@ -16,8 +16,8 @@ Item {
     readonly property url logoSource: Qt.resolvedUrl("../../assets/logo/" + (_logoFiles[Settings.logoColorway] ?? "blue_purple") + ".svg")
 
     property real markSize: 40                 // logo side (the pill's height)
-    // the white launcher tile inside the pill: a 6 px ring of the pill shows around it
-    readonly property real tileSize: markSize - 12
+    // the white launcher tile inside the pill: a 4 px ring of the pill shows around it
+    readonly property real tileSize: markSize - 8
     // PixelPlayer Desktop's sidebar header: a fully rounded solid pill (surfaceContainerHighest) behind the
     // logo glyph (primary, 24 px) and the bold name. In the rail the pill is just the circle around the mark.
     property real pillWidth: markSize
@@ -97,7 +97,8 @@ Item {
             scale: 1 + mark.t * (root.markSize - root.tileSize) / root.tileSize
             shape: mark.t > 0.5 ? "circle" : "cookie9"
             tileColor: mark.t > 0.5 ? Qt.tint(Theme.secondaryContainer, Qt.alpha(Theme.fgSecondaryContainer, mark.stateOpacity)) : "white"
-            markScale: 1.12
+            // the mark with room round it on its white tile (at 1.12 it filled the tile edge to edge)
+            markScale: 0.86
             markOpacity: mark.glyphOut
             Behavior on tileColor { enabled: !root._instant; ColorAnimation { duration: Theme.motion.effectsFast } }
         }
