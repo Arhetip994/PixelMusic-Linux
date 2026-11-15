@@ -138,8 +138,10 @@ ColumnLayout {
                     topRightRadius: Theme.shape.extraLarge
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
+                        // one hue, deep to light: primaryContainer into a paler tone of itself (tertiaryContainer
+                        // was a different colour altogether in the Expressive styles: violet running into lime)
                         GradientStop { position: 0; color: Theme.primaryContainer }
-                        GradientStop { position: 1; color: Theme.tertiaryContainer }
+                        GradientStop { position: 1; color: Qt.tint(Theme.primaryContainer, Qt.alpha(Theme.surfaceContainerLowest, 0.55)) }
                     }
                     StateLayer {
                         anchors.fill: parent

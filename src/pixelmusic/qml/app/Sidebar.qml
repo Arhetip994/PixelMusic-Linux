@@ -84,9 +84,7 @@ Item {
             Catalog.openShow(entry.id)
     }
     onDrawerChanged: { drawerOpen = false; closing = false }
-    onCompactChanged: {
-        if (!compact && !drawer) { drawerOpen = false; closing = false }
-    }
+    onCompactChanged: if (!compact && !drawer) { drawerOpen = false; closing = false }
     Timer { id: closeTimer; interval: Theme.motion.spatialDefault + 40; onTriggered: root.closing = false }
 
     readonly property real expandedWidth: 264
@@ -201,11 +199,8 @@ Item {
         function onPinsChanged() { if (root.libraryMode) root._rebuild() }
     }
 
-    // rail ↔ full: the slot in the layout changes in one step, not every frame (that re-laid the whole page and
-    // stuttered on battery); the panel animates its own width, reaching past the slot over the content card while it
-    // closes in, and Main.qml slides the card's edge along with it
     implicitWidth: drawer ? 0 : compact ? railWidth : expandedWidth
-    clip: !drawer && !floating && panel.width <= width + 0.5
+    clip: !drawer && !floating
     z: drawer || floating ? 50 : 0
 
     component FadeLabel: Label {
@@ -233,7 +228,7 @@ Item {
     Item {
         id: panel
         width: root.drawer ? (root.collapsing ? root.railWidth : root.expandedWidth)
-             : root.drawerOpen ? root.expandedWidth : root.compact ? root.railWidth : root.expandedWidth
+             : root.drawerOpen ? root.expandedWidth : root.width
         height: root.height
         x: !root.drawer ? 0 : root.drawerOpen ? 0 : root.collapsing ? root.width - root.railWidth : -width - 24
         visible: !root.drawer || root.drawerOpen || root.collapsing || root.closing
@@ -244,7 +239,7 @@ Item {
             NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasizedDecelerate }
         }
         Behavior on width {
-            enabled: !root.drawer
+            enabled: !root.drawer && root.compact
             NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized }
         }
         Keys.onEscapePressed: root.closeDrawer()

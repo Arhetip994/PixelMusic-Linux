@@ -202,4 +202,18 @@ QtObject {
     readonly property color toggleIdleContainer: "transparent"
     // the mini player's off toggles (MiniPlayerBar): onPrimaryContainer at 60 %
     readonly property color toggleIdleMini: Qt.alpha(fgPrimaryContainer, 0.6)
+
+    // The full player, as PixelPlayer's unified player sheet (FullPlayerContent, on the cover's primaryContainer):
+    // previous / next — primary with an onPrimary icon; play / pause — tertiaryFixedDim with onTertiaryFixed;
+    // shuffle on — primaryFixed / onPrimaryFixed, repeat on — secondaryFixed / onSecondaryFixed (BottomToggleRow);
+    // off — no container (Android puts onSurface 7 % behind them), the icon in onPrimaryContainer
+    readonly property string fullSkipStyle: "accent"
+    // light mode: tertiaryFixedDim (a pale tone 80) washed out on the light sheet — the deep tertiary instead
+    readonly property color fullPlayContainer: dark ? tertiaryFixedDim : tertiary
+    readonly property color fullPlayIcon: dark ? fgTertiaryFixed : fgTertiary
+    readonly property color fullShuffleOn: primaryFixed
+    readonly property color fgFullShuffleOn: fgPrimaryFixed
+    readonly property color fullRepeatOn: secondaryFixed
+    readonly property color fgFullRepeatOn: fgSecondaryFixed
+    readonly property color fullToggleIdle: Qt.alpha(fgPrimaryContainer, 0.85)
 }

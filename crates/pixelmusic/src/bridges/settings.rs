@@ -28,6 +28,7 @@ pub mod qobject {
         #[qproperty(QString, scheme_variant, cxx_name = "schemeVariant", READ, WRITE = set_scheme_variant, NOTIFY = scheme_variant_changed)]
         #[qproperty(bool, accent_from_cover, cxx_name = "accentFromCover", READ, WRITE = set_accent_from_cover, NOTIFY = accent_from_cover_changed)]
         #[qproperty(bool, player_from_cover, cxx_name = "playerFromCover", READ, WRITE = set_player_from_cover, NOTIFY = player_from_cover_changed)]
+        #[qproperty(bool, pitch_black, cxx_name = "pitchBlack", READ, WRITE = set_pitch_black, NOTIFY = pitch_black_changed)]
         #[qproperty(QString, custom_seed, cxx_name = "customSeed", READ, WRITE = set_custom_seed, NOTIFY = custom_seed_changed)]
         #[qproperty(bool, window_buttons, cxx_name = "windowButtons", READ = window_buttons_value, WRITE = set_window_buttons, NOTIFY = window_buttons_changed)]
         #[qproperty(QString, track_transition, cxx_name = "trackTransition", READ, WRITE = set_track_transition, NOTIFY = track_transition_changed)]
@@ -174,6 +175,7 @@ pub mod qobject {
         fn set_scheme_variant(self: Pin<&mut Settings>, value: QString);
         fn set_accent_from_cover(self: Pin<&mut Settings>, value: bool);
         fn set_player_from_cover(self: Pin<&mut Settings>, value: bool);
+        fn set_pitch_black(self: Pin<&mut Settings>, value: bool);
         fn set_custom_seed(self: Pin<&mut Settings>, value: QString);
         fn set_window_buttons(self: Pin<&mut Settings>, value: bool);
         fn set_track_transition(self: Pin<&mut Settings>, value: QString);
@@ -283,6 +285,9 @@ pub mod qobject {
         #[qsignal]
         #[cxx_name = "playerFromCoverChanged"]
         fn player_from_cover_changed(self: Pin<&mut Settings>);
+        #[qsignal]
+        #[cxx_name = "pitchBlackChanged"]
+        fn pitch_black_changed(self: Pin<&mut Settings>);
         #[qsignal]
         #[cxx_name = "customSeedChanged"]
         fn custom_seed_changed(self: Pin<&mut Settings>);
@@ -790,6 +795,7 @@ settings! {
     scheme_variant: QString = SchemeVariant, set_scheme_variant, scheme_variant_changed;
     accent_from_cover: bool = AccentFromCover, set_accent_from_cover, accent_from_cover_changed;
     player_from_cover: bool = PlayerFromCover, set_player_from_cover, player_from_cover_changed;
+    pitch_black: bool = PitchBlack, set_pitch_black, pitch_black_changed;
     custom_seed: QString = CustomSeed, set_custom_seed, custom_seed_changed;
     window_buttons: bool = WindowButtons, set_window_buttons, window_buttons_changed;
     track_transition: QString = TrackTransition, set_track_transition, track_transition_changed;

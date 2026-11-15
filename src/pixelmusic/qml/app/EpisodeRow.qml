@@ -70,12 +70,11 @@ Item {
     }
     HoverHandler { id: hover }
     // выпуск можно перетащить в очередь, как строку трека
-    // Above the row's click layer: that MouseArea took every press, so the drag never started (dragging a song from
-    // search or an artist page into the queue did nothing). A DragHandler only watches the press until the pointer
-    // has moved past the drag threshold, so clicks, the heart and the menu still reach what is under it.
+    // Under the row's click layer: a DragHandler in an item above it took the press for itself and taps no longer
+    // reached the row (songs did not play). Below it, it still takes the drag over once the pointer moves.
     QueueDragSource {
         anchors.fill: parent
-        z: 5
+        z: -2
         source: root
         enabled: root.uri !== ""
         title: root.episode.title ?? ""

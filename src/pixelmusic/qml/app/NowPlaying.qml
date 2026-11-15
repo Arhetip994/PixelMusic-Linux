@@ -456,8 +456,8 @@ Item {
                         iconFill: 1
                         id: shuffleBtn
                         // PixelPlayer: off — onPrimary at 45 % with a primary icon; on — primary / onPrimary ("filled")
-                        containerColor: enabled && !checked ? PlayerTheme.toggleIdleContainer : shuffleBtn._styleContainer
-                        iconColor: enabled && !checked ? PlayerTheme.toggleIdle : shuffleBtn._contentColor
+                        containerColor: !enabled ? shuffleBtn._styleContainer : checked ? PlayerTheme.fullShuffleOn : "transparent"
+                        iconColor: !enabled ? shuffleBtn._contentColor : checked ? PlayerTheme.fgFullShuffleOn : PlayerTheme.fullToggleIdle
                         onClicked: {
                             if (Player.isEpisode)
                                 Player.seekRelative(-10000)
@@ -465,26 +465,26 @@ Item {
                                 Player.shuffle = !Player.shuffle
                         }
                     }
-                    IconButton { scheme: PlayerTheme; icon: "skip_previous"; size: "m"; style: PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; onClicked: Player.previous() }
+                    IconButton { scheme: PlayerTheme; icon: "skip_previous"; size: "m"; style: PlayerTheme.fullSkipStyle; iconFill: 1; widthMode: "wide"; onClicked: Player.previous() }
                     PlayButton { scheme: PlayerTheme;
                         size: root.layoutCompact ? 72 : 96
                         playing: Player.playing
                         loading: Player.buffering
                         spin: Player.isLocal === true
-                        // PixelPlayer: primary with an onPrimary icon (PlayerTheme.playButtonContainer)
-                        containerColor: PlayerTheme.playButtonContainer
-                        iconColor: PlayerTheme.playButtonIcon
+                        // PixelPlayer's unified sheet: tertiaryFixedDim with onTertiaryFixed
+                        containerColor: PlayerTheme.fullPlayContainer
+                        iconColor: PlayerTheme.fullPlayIcon
                         onClicked: Player.togglePlay()
                     }
-                    IconButton { scheme: PlayerTheme; icon: "skip_next"; size: "m"; style: PlayerTheme.transportStyle; iconFill: 1; widthMode: "wide"; onClicked: Player.next() }
+                    IconButton { scheme: PlayerTheme; icon: "skip_next"; size: "m"; style: PlayerTheme.fullSkipStyle; iconFill: 1; widthMode: "wide"; onClicked: Player.next() }
                     IconButton { scheme: PlayerTheme;
                         icon: Player.isEpisode ? "forward_30" : Player.repeat === "one" ? "repeat_one" : "repeat"; size: "m"
                         checkable: !Player.isEpisode; autoToggle: false; checked: !Player.isEpisode && Player.repeat !== "off"
                         style: checked ? "filled" : "standard"
                         iconFill: 1
                         id: repeatBtn
-                        containerColor: enabled && !checked ? PlayerTheme.toggleIdleContainer : repeatBtn._styleContainer
-                        iconColor: enabled && !checked ? PlayerTheme.toggleIdle : repeatBtn._contentColor
+                        containerColor: !enabled ? repeatBtn._styleContainer : checked ? PlayerTheme.fullRepeatOn : "transparent"
+                        iconColor: !enabled ? repeatBtn._contentColor : checked ? PlayerTheme.fgFullRepeatOn : PlayerTheme.fullToggleIdle
                         onClicked: Player.isEpisode ? Player.seekRelative(30000) : Player.cycleRepeat()
                     }
                 }

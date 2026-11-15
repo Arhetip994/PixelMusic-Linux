@@ -118,11 +118,12 @@ pub struct Ranked {
     pub seconds: u64,
 }
 
-/// One bar of the chart: three hours (today), a day (week and month ranges) or a month (year range).
+/// One bar of the chart: three hours (today), a day (week and month ranges), a month (year range) or a year
+/// (all time).
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bucket {
-    /// "2026-11-12" for a day, "2026-11" for a month, "06" for the three hours from 6:00
+    /// "2026-11-12" for a day, "2026-11" for a month, "2026" for a year, "06" for the three hours from 6:00
     pub label: String,
     pub seconds: u64,
     pub plays: u32,
@@ -144,7 +145,7 @@ pub struct StatsSummary {
     /// albums by time heard (subtitle: the artist)
     pub top_albums: Vec<Ranked>,
     /// today: eight blocks of three hours; week: Monday..Sunday; month: day 1..today; year: January..December;
-    /// all time: none
+    /// all time: one per year, from the first year with a play to this one
     pub buckets: Vec<Bucket>,
     /// the hour of the day (0..23) with the most listening
     pub peak_hour: Option<i8>,
@@ -298,7 +299,15 @@ pub fn summary(plays: &[ListenEvent], range: StatsRange, today: Date, tz: &TimeZ
                 plays: in_range.iter().filter(|(d, _)| d.month() == month).count() as u32,
             })
             .collect(),
-        StatsRange::AllTime => Vec::new(),
+        // one bar per year, from the first year with a play to this one
+        StatsRange::AllTime if in_range.is_empty() => Vec::new(),
+        StatsRange::AllTime => (start.year()..=today.year())
+            .map(|year| Bucket {
+                label: format!("{year:04}"),
+                seconds: in_range.iter().filter(|(d, _)| d.year() == year).map(|(_, p)| u64::from(p.seconds)).sum(),
+                plays: in_range.iter().filter(|(d, _)| d.year() == year).count() as u32,
+            })
+            .collect(),
     };
 
     StatsSummary {
@@ -572,7 +581,9 @@ mod tests {
         let all = summary(&sample(), StatsRange::AllTime, today, &TimeZone::UTC);
         assert_eq!(all.plays, 7);
         assert_eq!(all.top_tracks[0].plays, 3);
-        assert!(all.buckets.is_empty());
+        // one bar per year with a play, up to this year
+        assert_eq!(all.buckets.iter().map(|b| b.label.as_str()).collect::<Vec<_>>(), ["2026"]);
+        assert_eq!(all.buckets[0].plays, 7);
         let empty = summary(&[], StatsRange::AllTime, today, &TimeZone::UTC);
         assert_eq!(empty, StatsSummary::default());
     }

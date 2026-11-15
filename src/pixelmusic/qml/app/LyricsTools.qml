@@ -40,7 +40,10 @@ Row {
 
     // Material 3 Expressive icon buttons: a wide tonal pill for search, a narrow toggle for ⋮ that morphs to a
     // rounded square in the primary colour while the options card is open
+    // the full player's colours (the cover's while "Player follows the cover" is on), not the app's: they sit on the
+    // player sheet next to its other buttons
     IconButton {
+        scheme: root.scheme
         icon: "search"
         style: "tonal"
         widthMode: "wide"
@@ -50,6 +53,7 @@ Row {
     }
     IconButton {
         id: moreButton
+        scheme: root.scheme
         icon: "more_vert"
         style: "filled"
         widthMode: "narrow"

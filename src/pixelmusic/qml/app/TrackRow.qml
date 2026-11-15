@@ -119,12 +119,19 @@ Item {
     readonly property bool _compactAdded: width < 600
     readonly property real _editT: editable ? 1 : 0
 
+    // The playing song: a solid primaryContainer pill, fully rounded, as the queue's current card (QueueRow);
+    // its text takes onPrimaryContainer
+    readonly property bool _pill: current && !editable && !dragging
+    readonly property color _fg: _pill ? Theme.fgPrimaryContainer : Theme.fgSurface
+    readonly property color _fgSoft: _pill ? Qt.alpha(Theme.fgPrimaryContainer, 0.75) : Theme.fgSurfaceVariant
     Rectangle {
         id: bg
         anchors.fill: parent
-        radius: Theme.shape.large
+        radius: root._pill ? height / 2 : Theme.shape.large
         color: root.dragging ? Theme.surfaceContainerHighest
-             : root.current && !root.editable ? Qt.alpha(Theme.primary, 0.12) : "transparent"
+             : root._pill ? Theme.primaryContainer : Qt.alpha(Theme.primaryContainer, 0)
+        Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
+        Behavior on radius { enabled: !Theme.reducedMotion; NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized } }
     }
     // тень поднятой строки (Elevation кладётся рядом с bg — внутрь строки, сдвигается вместе с ней)
     Elevation { target: bg; level: root.dragging ? 2 : 0 }
@@ -197,13 +204,28 @@ Item {
             }
         }
 
-        Label {
+        Item {
             visible: root.number > 0
             Layout.preferredWidth: 28
-            text: root.number
-            type: "bodyMedium"
-            color: Theme.fgSurfaceVariant
-            horizontalAlignment: Text.AlignRight
+            Layout.preferredHeight: 20
+            Label {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: !root._pill
+                text: root.number
+                type: "bodyMedium"
+                color: root._fgSoft
+            }
+            // the queue's playing bars (QueueRow): moving while it plays, folded to dots when paused
+            PlayingEqIcon {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root._pill
+                width: 20
+                height: 18
+                color: root._fg
+                playing: Player.playing
+            }
         }
 
         // выбранный трек ещё грузится — индикатор MD3 поверх обложки; строка уже переключилась на него
@@ -240,7 +262,7 @@ Item {
                     text: root.title
                     type: "bodyLarge"
                     weight: 500
-                    color: root.current ? Theme.primary : Theme.fgSurface
+                    color: root._fg
                 }
                 Label {
                     visible: root.version !== ""
@@ -248,7 +270,7 @@ Item {
                     Layout.maximumWidth: Math.ceil(implicitWidth)
                     text: root.version
                     type: "bodyLarge"
-                    color: Theme.fgSurfaceVariant
+                    color: root._fgSoft
                 }
                 Rectangle {
                     visible: root.explicit
@@ -256,7 +278,7 @@ Item {
                     implicitHeight: 16
                     radius: 4
                     color: Theme.surfaceContainerHighest
-                    Label { anchors.centerIn: parent; text: "E"; type: "labelSmall"; color: Theme.fgSurfaceVariant }
+                    Label { anchors.centerIn: parent; text: "E"; type: "labelSmall"; color: root._fgSoft }
                 }
                 // saved for playing offline (Downloads); "downloading" while it is in the queue
                 Icon {
@@ -277,7 +299,7 @@ Item {
                 refs: root.artistRefs ?? []
                 text: root.artists
                 type: "bodyMedium"
-                color: Theme.fgSurfaceVariant
+                color: root._fgSoft
             }
         }
 
@@ -290,7 +312,7 @@ Item {
             onClicked: Catalog.openAlbum(root.albumId)
             text: root.album
             type: "bodyMedium"
-            color: Theme.fgSurfaceVariant
+            color: root._fgSoft
         }
 
         // «Добавил» (аватар + имя) / «Добавлено» (дата); в узкой строке — только аватар, а дату прячем:
@@ -310,7 +332,7 @@ Item {
                 Layout.fillWidth: true
                 text: root.addedColumn === "by" ? root.addedBy : root._date(root.addedAt)
                 type: "bodyMedium"
-                color: Theme.fgSurfaceVariant
+                color: root._fgSoft
             }
         }
 
@@ -320,7 +342,7 @@ Item {
             Layout.preferredWidth: 112
             text: root.playCount > 0 ? I18n.grouped(root.playCount) : ""
             type: "bodyMedium"
-            color: Theme.fgSurfaceVariant
+            color: root._fgSoft
             horizontalAlignment: Text.AlignRight
             font.features: ({ "tnum": 1 })
         }
@@ -398,7 +420,7 @@ Item {
             Layout.preferredWidth: 44
             text: root.durationMs > 0 ? root._time(root.durationMs) : ""
             type: "bodyMedium"
-            color: Theme.fgSurfaceVariant
+            color: root._fgSoft
             horizontalAlignment: Text.AlignRight
         }
     }
@@ -406,12 +428,11 @@ Item {
     HoverHandler { id: rowHover }
 
     // Перетаскивание в очередь (вне правки)
-    // Above the row's click layer: that MouseArea took every press, so the drag never started (dragging a song from
-    // search or an artist page into the queue did nothing). A DragHandler only watches the press until the pointer
-    // has moved past the drag threshold, so clicks, the heart and the menu still reach what is under it.
+    // Under the row's click layer: a DragHandler in an item above it took the press for itself and taps no longer
+    // reached the row (songs did not play). Below it, it still takes the drag over once the pointer moves.
     QueueDragSource {
         anchors.fill: parent
-        z: 5
+        z: -2
         source: root
         enabled: !root.editable && root.available && root.uri !== ""
         title: root.title
@@ -427,7 +448,8 @@ Item {
     StateLayer {
         z: -1
         anchors.fill: parent
-        radius: Theme.shape.large
+        radius: bg.radius
+        color: root._fg
         dragged: root.dragging
         onClicked: if (!root.editable) root.activated()
     }

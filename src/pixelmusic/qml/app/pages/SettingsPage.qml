@@ -671,6 +671,14 @@ Page {
                     }
                 }
 
+                // dark mode only: the page and panels on pure black, the cards a few near-black steps above it
+                SettingRow {
+                    visible: Theme.dark
+                    title: I18n.t("Pitch black")
+                    description: I18n.t("Pure black background for AMOLED screens; cards and panels stay just above black")
+                    Switch { checked: Settings.pitchBlack; onToggled: c => Settings.pitchBlack = c }
+                }
+
                 SettingRow {
                     title: I18n.t("Interface scale")
                     description: I18n.t("Size of text and controls. Takes effect after restarting the app")

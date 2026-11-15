@@ -284,6 +284,76 @@ pub fn build_scheme(seed: u32, dark: bool, variant: Variant, contrast: f64) -> S
     }
 }
 
+/// What pages and panels sit on: the background and the lower surface containers (the window, the content panel,
+/// the queue panel).
+const PAGE_ROLES: [&str; 8] = [
+    "background",
+    "surface",
+    "surfaceBright",
+    "surfaceDim",
+    "surfaceContainerLowest",
+    "surfaceContainerLow",
+    "surfaceContainer",
+    "inverseOnSurface",
+];
+/// The cards on them: the category and section cards, settings rows, queue rows, chips.
+const CARD_ROLES: [&str; 2] = ["surfaceContainerHigh", "surfaceContainerHighest"];
+
+/// Light page surfaces' chroma at most: PixelPlayer Desktop's light surfaces come from a neutral palette at about
+/// chroma 4, near white with a hint of the theme's hue (the Expressive and Vibrant styles and the pastel palettes
+/// tinted the whole page, up to chroma 24).
+pub const LIGHT_SURFACE_CHROMA: f64 = 3.5;
+/// Light cards keep the theme's tint, held below this so the Vibrant style does not turn them loud.
+pub const LIGHT_CARD_CHROMA: f64 = 16.0;
+
+fn recolor(argb: u32, chroma: impl Fn(f64) -> f64, tone: impl Fn(f64) -> f64) -> u32 {
+    let hct = Hct::new(Rgb::from_u32(argb));
+    Rgb::from(Hct::from(hct.get_hue(), chroma(hct.get_chroma()), tone(hct.get_tone()))).as_argb_u32()
+}
+
+/// Light schemes: the page surfaces keep their tone and hue with their chroma held at `LIGHT_SURFACE_CHROMA` (near
+/// white); the cards on them keep their dynamic tint, up to `LIGHT_CARD_CHROMA`. Dark schemes are left as they are.
+pub fn soften_light_surfaces(scheme: &mut Scheme) {
+    if scheme.dark {
+        return;
+    }
+    for (roles, cap) in [(&PAGE_ROLES[..], LIGHT_SURFACE_CHROMA), (&CARD_ROLES[..], LIGHT_CARD_CHROMA)] {
+        for role in roles {
+            if let Some(slot) = scheme.colors.get_mut(role) {
+                *slot = recolor(*slot, |c| c.min(cap), |t| t);
+            }
+        }
+    }
+}
+
+/// Pitch black (AMOLED) for dark schemes: the background and the page surface are pure black, and the containers
+/// step up from it in small, near-neutral tones, so panels, cards and rows still read as layers on an OLED screen
+/// where black pixels are off. Accent roles (primary, the containers' own colours, text) are left as they are.
+pub fn pitch_black(scheme: &mut Scheme) {
+    if !scheme.dark {
+        return;
+    }
+    const BLACK: u32 = 0xFF00_0000;
+    for role in ["background", "surface", "surfaceDim", "surfaceContainerLowest"] {
+        if let Some(slot) = scheme.colors.get_mut(role) {
+            *slot = BLACK;
+        }
+    }
+    // the page panels just off black, the cards on them (section and category cards, rows, chips) a step or two
+    // above: deep enough to read as part of the black page, still apart from each other
+    for (role, tone) in [
+        ("surfaceContainerLow", 2.0),
+        ("surfaceContainer", 4.0),
+        ("surfaceContainerHigh", 6.0),
+        ("surfaceContainerHighest", 8.0),
+        ("surfaceBright", 12.0),
+    ] {
+        if let Some(slot) = scheme.colors.get_mut(role) {
+            *slot = recolor(*slot, |c| c.min(4.0), |_| tone);
+        }
+    }
+}
+
 /// A seed with no real colour (black-and-white artwork, a grey custom colour): a tinted scheme would invent a hue
 /// the picture does not have, so such seeds get the grey Monochrome scheme (as PixelPlayer does).
 pub fn is_grayscale(seed: u32) -> bool {
@@ -304,6 +374,7 @@ pub fn variant_for_seed(seed: u32, chosen: Variant) -> Variant {
 pub fn app_scheme(seed: u32, dark: bool, chosen: Variant, contrast: f64) -> Scheme {
     let variant = variant_for_seed(seed, chosen);
     let mut scheme = build_scheme(seed, dark, variant, contrast);
+    soften_light_surfaces(&mut scheme);
     if variant != Variant::Monochrome {
         return scheme;
     }
@@ -691,5 +762,52 @@ mod tests {
     fn contrast_ratio_spans_one_to_twenty_one() {
         assert!((contrast_ratio(0xFF00_0000, 0xFFFF_FFFF) - 21.0).abs() < 0.01);
         assert!((contrast_ratio(0xFF33_6699, 0xFF33_6699) - 1.0).abs() < 1e-9);
+    }
+
+    fn hct_of(argb: u32) -> Hct {
+        Hct::new(Rgb::from_u32(argb))
+    }
+
+    #[test]
+    fn light_surfaces_are_only_hinted_in_every_style() {
+        for v in Variant::CHOICES {
+            let light = app_scheme(0xFF8C_6DFF, false, v, 0.0);
+            for role in PAGE_ROLES {
+                let c = hct_of(light.colors[role]);
+                assert!(c.get_chroma() <= LIGHT_SURFACE_CHROMA + 1.0, "{} {role}: chroma {:.1}", v.name(), c.get_chroma());
+            }
+            for role in CARD_ROLES {
+                let c = hct_of(light.colors[role]);
+                assert!(c.get_chroma() <= LIGHT_CARD_CHROMA + 1.0, "{} {role}: chroma {:.1}", v.name(), c.get_chroma());
+            }
+            // the text still reads on the deepest container
+            assert!(contrast_ratio(light.colors["surfaceContainerHighest"], light.colors["onSurface"]) >= 4.5);
+        }
+        // dark schemes keep their surfaces
+        let dark = app_scheme(0xFF8C_6DFF, true, Variant::Expressive, 0.0);
+        assert_eq!(dark.colors, build_scheme(0xFF8C_6DFF, true, Variant::Expressive, 0.0).colors);
+    }
+
+    #[test]
+    fn pitch_black_turns_the_page_black_and_keeps_layers_and_text() {
+        for v in Variant::CHOICES {
+            let mut s = app_scheme(0xFF8C_6DFF, true, v, 0.0);
+            let accent = s.colors["primary"];
+            pitch_black(&mut s);
+            assert_eq!(s.colors["background"], 0xFF00_0000);
+            assert_eq!(s.colors["surface"], 0xFF00_0000);
+            let tones: Vec<f64> = ["surfaceContainerLow", "surfaceContainer", "surfaceContainerHigh", "surfaceContainerHighest"]
+                .iter()
+                .map(|r| hct_of(s.colors[r]).get_tone())
+                .collect();
+            assert!(tones.windows(2).all(|w| w[0] < w[1]), "{}: containers must step up {tones:?}", v.name());
+            assert_eq!(s.colors["primary"], accent);
+            assert!(contrast_ratio(s.colors["surfaceContainerHighest"], s.colors["onSurface"]) >= 7.0);
+        }
+        // a light scheme is left alone
+        let mut light = app_scheme(0xFF8C_6DFF, false, Variant::TonalSpot, 0.0);
+        let before = light.colors.clone();
+        pitch_black(&mut light);
+        assert_eq!(light.colors, before);
     }
 }

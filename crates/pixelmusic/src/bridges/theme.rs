@@ -118,6 +118,8 @@ pub struct ThemeEngineRust {
     variant: Variant,
     /// a curated palette chosen instead of an accent colour (used while the accent is not from a cover)
     palette: Option<&'static Palette>,
+    /// Settings → Appearance → Pitch black: dark mode on pure black (mf_theme::pitch_black)
+    pitch_black: bool,
     contrast: f64,
     request: u64,
     pending_image: Option<PathBuf>,
@@ -138,6 +140,7 @@ impl Default for ThemeEngineRust {
             dark: true,
             variant: Variant::TonalSpot,
             palette: None,
+            pitch_black: false,
             contrast: 0.0,
             request: 0,
             pending_image: None,
@@ -179,12 +182,28 @@ fn settings_state() -> (bool, Variant, u32, Option<&'static Palette>) {
     (dark, variant, seed, palette)
 }
 
-/// The scheme for a seed, or for the palette when one is chosen.
-fn scheme_for(seed: u32, palette: Option<&'static Palette>, dark: bool, variant: Variant, contrast: f64) -> Scheme {
-    match palette {
+/// The scheme for a seed, or for the palette when one is chosen; on pure black when `pitch_black` (dark mode only).
+fn scheme_for(
+    seed: u32,
+    palette: Option<&'static Palette>,
+    dark: bool,
+    variant: Variant,
+    contrast: f64,
+    pitch_black: bool,
+) -> Scheme {
+    let mut scheme = match palette {
         Some(p) => mf_theme::palette_scheme(p, dark, variant, contrast),
         None => mf_theme::app_scheme(seed, dark, variant, contrast),
+    };
+    if pitch_black {
+        mf_theme::pitch_black(&mut scheme);
     }
+    scheme
+}
+
+/// Settings → Pitch black (read on the GUI thread: the scheme itself is built in the pool)
+fn pitch_black_setting() -> bool {
+    ctx().services.settings.get_bool(SettingKey::PitchBlack)
 }
 
 fn non_empty_path(path: String) -> Option<PathBuf> {
@@ -276,6 +295,7 @@ impl qobject::ThemeEngine {
             return;
         };
         let (request, dark, variant, contrast) = (this.player_request, this.dark, this.variant, this.contrast);
+        let pitch_black = this.pitch_black;
         let known = this.player_seed.as_ref().filter(|(p, _)| *p == path).map(|(_, seed)| *seed);
         let thread = self.qt_thread();
         ctx().rt.spawn_blocking(move || {
@@ -289,7 +309,7 @@ impl qobject::ThemeEngine {
                     }
                 },
             };
-            let scheme = scheme_for(seed, None, dark, variant, contrast);
+            let scheme = scheme_for(seed, None, dark, variant, contrast, pitch_black);
             let _ = thread.queue(move |theme| theme.player_ready(request, path, seed, scheme));
         });
     }
@@ -324,6 +344,7 @@ impl qobject::ThemeEngine {
     fn apply_settings(mut self: Pin<&mut Self>) {
         let (dark, variant, seed, palette) = settings_state();
         self.as_mut().rust_mut().palette = palette;
+        self.as_mut().rust_mut().pitch_black = pitch_black_setting();
         if dark != self.dark {
             self.as_mut().rust_mut().dark = dark;
             self.as_mut().dark_changed();
@@ -354,6 +375,7 @@ impl qobject::ThemeEngine {
         this.request += 1;
         let (request, seed, dark, variant, contrast) = (this.request, this.seed, this.dark, this.variant, this.contrast);
         let palette = this.palette;
+        let pitch_black = this.pitch_black;
         ctx().rt.spawn_blocking(move || {
             let (seed, palette) = match &image {
                 Some(path) => match mf_theme::artwork_seed_from_image(path) {
@@ -366,7 +388,7 @@ impl qobject::ThemeEngine {
                 None => (seed, palette),
             };
             // black-and-white artwork (or a grey colour) gets a grey scheme, not an invented hue
-            let scheme = scheme_for(seed, palette, dark, variant, contrast);
+            let scheme = scheme_for(seed, palette, dark, variant, contrast, pitch_black);
             let _ = thread.queue(move |theme| theme.scheme_ready(request, scheme));
         });
     }
@@ -394,6 +416,7 @@ impl qobject::ThemeEngine {
                     | SettingKey::SchemeVariant
                     | SettingKey::AccentFromCover
                     | SettingKey::PlayerFromCover
+                    | SettingKey::PitchBlack
                     | SettingKey::CustomSeed
             ),
             Delivery::Lagged => true,
@@ -421,7 +444,8 @@ impl cxx_qt::Initialize for qobject::ThemeEngine {
             this.variant = variant;
             this.seed = seed;
             this.palette = palette;
-            this.colors = to_qcolors(&scheme_for(seed, palette, dark, variant, this.contrast));
+            this.pitch_black = pitch_black_setting();
+            this.colors = to_qcolors(&scheme_for(seed, palette, dark, variant, this.contrast, this.pitch_black));
             this.player_colors = this.colors.clone();
         }
         self.as_mut().dark_changed();

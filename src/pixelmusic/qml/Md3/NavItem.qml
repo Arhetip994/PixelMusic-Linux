@@ -28,7 +28,9 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: height / 2
-        color: root.selected ? Theme.secondaryContainer : "transparent"
+        // the accent's own container (not secondaryContainer: the Expressive / Vibrant styles turn secondary to an
+        // unrelated hue, a lime pill under a violet icon)
+        color: root.selected ? Theme.primaryContainer : "transparent"
         Behavior on color { enabled: !Theme.transitioning; ColorAnimation { duration: Theme.motion.effectsDefault } }
     }
 
@@ -75,7 +77,7 @@ Item {
         text: root.text
         type: "labelLarge"
         weight: root.bold ? 700 : 500
-        color: root.selected ? Theme.fgSecondaryContainer : Theme.fgSurfaceVariant
+        color: root.selected ? Theme.fgPrimaryContainer : Theme.fgSurfaceVariant
         opacity: root.compact ? 0 : 1
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsFast } }

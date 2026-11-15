@@ -30,7 +30,11 @@ Text {
     lineHeight: _t.line
     lineHeightMode: Text.FixedHeight
     verticalAlignment: Text.AlignVCenter
+    // while the page resizes (Theme.resizing) an overflowing title is simply cut at its edge: the fade layer is an
+    // offscreen texture as wide as the label, reallocated and redrawn every frame of a width animation
+    readonly property bool _fading: overflowing && !Theme.resizing
     elide: overflowing ? Text.ElideNone : Text.ElideRight
+    clip: overflowing && Theme.resizing
     textFormat: Text.PlainText
 
     TextMetrics {
@@ -39,7 +43,7 @@ Text {
         text: root.fade ? root.text : ""
     }
 
-    layer.enabled: overflowing
+    layer.enabled: _fading
     layer.effect: ShaderEffect {
         readonly property real fadeFrom: Math.max(0, 1 - root.fadeWidth / Math.max(1, root.width))
         fragmentShader: Qt.resolvedUrl("shaders/fadeedge.frag.qsb")

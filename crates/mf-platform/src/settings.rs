@@ -30,6 +30,8 @@ pub enum SettingKey {
     AccentFromCover,
     /// the mini and full player take the playing cover's colours even when the app keeps its own accent
     PlayerFromCover,
+    /// dark mode on pure black (AMOLED): the background black, the containers a few near-black steps above it
+    PitchBlack,
     CustomSeed,
     WindowButtons,
     TrackTransition,
@@ -259,11 +261,12 @@ pub enum SettingType {
 }
 
 impl SettingKey {
-    pub const ALL: [SettingKey; 120] = [
+    pub const ALL: [SettingKey; 121] = [
         SettingKey::ThemeMode,
         SettingKey::SchemeVariant,
         SettingKey::AccentFromCover,
         SettingKey::PlayerFromCover,
+        SettingKey::PitchBlack,
         SettingKey::CustomSeed,
         SettingKey::WindowButtons,
         SettingKey::TrackTransition,
@@ -390,6 +393,7 @@ impl SettingKey {
             SchemeVariant => "schemeVariant",
             AccentFromCover => "accentFromCover",
             PlayerFromCover => "playerFromCover",
+            PitchBlack => "pitchBlack",
             CustomSeed => "customSeed",
             WindowButtons => "windowButtons",
             TrackTransition => "trackTransition",
@@ -530,6 +534,7 @@ impl SettingKey {
             SchemeVariant => Str("tonalSpot".into()),
             AccentFromCover => Bool(true),
             PlayerFromCover => Bool(true),
+            PitchBlack => Bool(false),
             CustomSeed => Str("#8C6DFF".into()), // Ultraviolet, фирменный акцент PixelMusic
             WindowButtons => Bool(false),
             TrackTransition => Str("wipe".into()),

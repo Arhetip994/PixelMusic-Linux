@@ -163,13 +163,14 @@ Page {
     // how far the pull has come (px), easing back when the wheel lets go
     property real pull: 0
     // about four deliberate wheel notches (150 px × 0.5 each), or a long touchpad pull
-    readonly property real pullThreshold: 300
+    // about eight deliberate wheel notches after the page has come to rest at the top, or a long touchpad pull
+    readonly property real pullThreshold: 320
     // A pull counts only once the page has rested at the top: the wheel notches and touchpad inertia that carry a
     // normal scroll up to the top kept arriving after it got there and refreshed the feed by themselves
     property real _lastMoved: 0
     property real _lastRefresh: 0
     property real _lastPullEvent: 0
-    readonly property int restBeforePull: 450
+    readonly property int restBeforePull: 900
     Connections {
         target: page.flickable
         function onContentYChanged() { page._lastMoved = Date.now() }
@@ -181,9 +182,10 @@ Page {
                 return
             // a pull already under way keeps going; a new one waits until the page has stood still at the top and
             // the wheel has paused (touchpad inertia streams on without a pause, so it never starts one)
-            if (page.pull <= 0 && (now - page._lastMoved < page.restBeforePull || quiet < 250))
+            if (page.pull <= 0 && (now - page._lastMoved < page.restBeforePull || quiet < 400))
                 return
-            page.pull = Math.min(page.pullThreshold * 1.2, page.pull + dy * 0.5)
+            // each event adds at most 40: one fast flick or a burst of inertia cannot reach the threshold by itself
+            page.pull = Math.min(page.pullThreshold * 1.2, page.pull + Math.min(40, dy * 0.4))
             pullRelease.restart()
             if (page.pull >= page.pullThreshold) {
                 page.pull = 0
@@ -192,7 +194,7 @@ Page {
             }
         }
     }
-    Timer { id: pullRelease; interval: 350; onTriggered: page.pull = 0 }
+    Timer { id: pullRelease; interval: 300; onTriggered: page.pull = 0 }
 
     // the pull indicator: drops in from the top edge, turns with the pull, spins while the feed loads
     Item {

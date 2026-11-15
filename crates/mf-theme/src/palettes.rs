@@ -11,6 +11,12 @@ use material_colors::hct::Hct;
 
 use crate::{app_scheme, Scheme, Variant};
 
+/// Light palettes, as the accent-colour themes look (Tonal Spot): the page a faint tint of the palette's colour —
+/// not the plain grey the neutral cap gave — and the cards on it a light tint, about the accent themes' own (~8);
+/// at the full palette chroma (16) the cards came out plainly coloured (Ocean Breeze read cyan).
+const PALETTE_PAGE_CHROMA: f64 = 5.0;
+const PALETTE_CARD_CHROMA: f64 = 8.0;
+
 /// One palette; colours are 0xFFRRGGBB.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Palette {
@@ -120,10 +126,6 @@ pub fn palette(choice: &str) -> Option<&'static Palette> {
     PALETTES.iter().find(|p| p.id.eq_ignore_ascii_case(id))
 }
 
-/// The light surfaces' chroma at most: about a tonal-spot neutral palette's, so they read near white with the
-/// palette's hue only hinted.
-const LIGHT_SURFACE_CHROMA: f64 = 6.0;
-
 fn hct(argb: u32) -> Hct {
     Hct::new(Rgb::from_u32(argb))
 }
@@ -168,8 +170,11 @@ pub fn palette_scheme(p: &Palette, dark: bool, chosen: Variant, contrast: f64) -
     // Light: the palette's colours themselves on the containers; the surfaces as PixelPlayer Desktop builds them
     // (toComposeColorScheme: the neutral palette at tones 98 / 96 / 94 / 92 / 90 / 100), only a hint of the palette's
     // hue — at chroma 16 the background and the page cards came out plainly tinted (Ocean Breeze read cyan all over)
-    let surface_chroma = chroma(p.surface).min(LIGHT_SURFACE_CHROMA);
+    // the page near white; the cards on it (section and category cards, rows) in the palette's own tint
+    let surface_chroma = chroma(p.surface).min(PALETTE_PAGE_CHROMA);
+    let card_chroma = chroma(p.surface).min(PALETTE_CARD_CHROMA);
     let surface = |tone: f64| tone_of(p.surface, surface_chroma, tone);
+    let card = |tone: f64| tone_of(p.surface, card_chroma, tone);
     for (name, tone) in [
         ("background", 98.0),
         ("surface", 98.0),
@@ -177,14 +182,14 @@ pub fn palette_scheme(p: &Palette, dark: bool, chosen: Variant, contrast: f64) -
         ("surfaceContainerLowest", 100.0),
         ("surfaceContainerLow", 96.0),
         ("surfaceContainer", 94.0),
-        ("surfaceContainerHigh", 92.0),
-        ("surfaceContainerHighest", 90.0),
         ("surfaceVariant", 90.0),
         ("surfaceDim", 87.0),
         ("inverseOnSurface", 95.0),
     ] {
         set(name, surface(tone));
     }
+    set("surfaceContainerHigh", card(92.0));
+    set("surfaceContainerHighest", card(90.0));
     let ink = surface_chroma.min(8.0);
     set("onBackground", tone_of(p.surface, ink, 10.0));
     set("onSurface", tone_of(p.surface, ink, 10.0));
@@ -270,11 +275,16 @@ mod tests {
     fn light_palette_surfaces_are_near_white_with_a_hint_of_hue() {
         for p in &PALETTES {
             let s = palette_scheme(p, false, Variant::TonalSpot, 0.0);
-            for role in ["background", "surfaceContainer", "surfaceContainerHigh"] {
+            for role in ["background", "surfaceContainer"] {
                 let c = hct(s.colors[role]);
-                assert!(c.get_chroma() <= LIGHT_SURFACE_CHROMA + 1.0, "{} {role}: chroma {:.1}", p.id, c.get_chroma());
-                assert!(c.get_tone() >= 91.0, "{} {role}: tone {:.1}", p.id, c.get_tone());
+                assert!(c.get_chroma() <= PALETTE_PAGE_CHROMA + 1.0, "{} {role}: chroma {:.1}", p.id, c.get_chroma());
+                assert!(c.get_tone() >= 93.0, "{} {role}: tone {:.1}", p.id, c.get_tone());
             }
+            // the cards keep the palette's tint
+            let card = hct(s.colors["surfaceContainerHigh"]);
+            let want = hct(p.surface).get_chroma().min(PALETTE_CARD_CHROMA);
+            assert!(card.get_chroma() <= PALETTE_CARD_CHROMA + 1.0, "{}: card chroma {:.1}", p.id, card.get_chroma());
+            assert!(card.get_chroma() >= want - 1.0, "{}: card chroma {:.1} < {want:.1}", p.id, card.get_chroma());
         }
     }
 }
