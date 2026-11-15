@@ -12,7 +12,10 @@
 //!
 //! Testing without a newer release: PIXELMUSIC_UPDATE_FAKE_VERSION=0.0.1 makes this build report that
 //! version; PIXELMUSIC_UPDATE_INSTALL_KIND=installer|portable|appimage|mac|manual overrides the detected kind
-//! (a cargo build is "dev": never replaced automatically).
+//! (a cargo build is "dev": never replaced automatically). PIXELMUSIC_UPDATE_API points the checks at another
+//! GitHub-shaped server (a local fake with test releases) instead of api.github.com.
+#[cfg(test)]
+mod fake_github;
 pub mod install;
 pub mod progress;
 pub mod release;
@@ -53,6 +56,16 @@ const SUMS_NAME: &str = "SHA256SUMS.txt";
 
 pub const FAKE_VERSION_ENV: &str = "PIXELMUSIC_UPDATE_FAKE_VERSION";
 pub const INSTALL_KIND_ENV: &str = "PIXELMUSIC_UPDATE_INSTALL_KIND";
+pub const API_ENV: &str = "PIXELMUSIC_UPDATE_API";
+
+/// The releases API (PIXELMUSIC_UPDATE_API overrides, for testing against a fake server).
+fn api_base() -> String {
+    std::env::var(API_ENV)
+        .ok()
+        .map(|url| url.trim().trim_end_matches('/').to_owned())
+        .filter(|url| url.starts_with("http://") || url.starts_with("https://"))
+        .unwrap_or_else(|| API.to_owned())
+}
 
 /// Version of this build (or PIXELMUSIC_UPDATE_FAKE_VERSION, if it parses).
 pub fn current_version() -> String {
@@ -120,6 +133,8 @@ pub struct UpdateService {
     http: sf_api::Http,
     app_requests: broadcast::Sender<AppRequest>,
     kind: InstallKind,
+    /// GitHub's releases API for the repo (`api_base`)
+    api: String,
     snapshot: watch::Sender<UpdateSnapshot>,
     inner: Mutex<Inner>,
 }
@@ -166,6 +181,7 @@ impl UpdateService {
             http,
             app_requests,
             kind,
+            api: api_base(),
             snapshot: watch::Sender::new(snapshot),
             inner: Mutex::new(Inner::default()),
         })
@@ -313,8 +329,8 @@ impl UpdateService {
         let channel = Channel::from_setting(&self.settings.get_str(SettingKey::UpdateChannel));
         let current = Version::parse(&current_version()).unwrap_or(Version::parse("0.0.0").expect("version"));
         let (url, list) = match channel {
-            Channel::Stable => (format!("{API}/releases/latest"), false),
-            Channel::Beta => (format!("{API}/releases?per_page=20"), true),
+            Channel::Stable => (format!("{}/releases/latest", self.api), false),
+            Channel::Beta => (format!("{}/releases?per_page=20", self.api), true),
         };
         let Some(body) = self.get_json(&client, &url).await? else {
             return Ok((None, false));

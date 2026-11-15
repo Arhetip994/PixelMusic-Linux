@@ -37,7 +37,9 @@ const RESOLVE_PARALLEL: usize = 3;
 const COVER_PARALLEL: usize = 3;
 pub const FEED_RECENT: u32 = 30;
 pub const FEED_FRIENDS: u32 = 20;
-pub const FEED_TOP_ALBUMS: u32 = 20;
+/// Last.fm counts singles as albums (the album tag of each scrobble), so more are read than are shown: the
+/// shelves keep only the ones YouTube Music knows as an album or EP (`album_kind_key`).
+pub const FEED_TOP_ALBUMS: u32 = 50;
 /// The periods user.gettoptracks accepts, in the order the page shows them.
 pub const PERIODS: [&str; 6] = ["overall", "12month", "6month", "3month", "1month", "7day"];
 
@@ -888,9 +890,36 @@ pub fn cover_key(kind: CoverKind, title: &str, artist: &str) -> String {
     format!("{}|{}|{}", kind.key(), artist.trim(), title.trim()).to_lowercase()
 }
 
+/// Keys in `covers` of the album found for a top-album tile: its catalog id (to open it) and uri (to play it).
+/// QML builds the same strings: "albumid|" / "albumuri|" + the album's `cover_key`.
+pub fn album_id_key(title: &str, artist: &str) -> String {
+    format!("albumid|{}", cover_key(CoverKind::Album, title, artist))
+}
+pub fn album_uri_key(title: &str, artist: &str) -> String {
+    format!("albumuri|{}", cover_key(CoverKind::Album, title, artist))
+}
+/// "albumkind|" + the album's `cover_key`: "album" (an album or an EP), "single", or "none" (no such album found).
+pub fn album_kind_key(title: &str, artist: &str) -> String {
+    format!("albumkind|{}", cover_key(CoverKind::Album, title, artist))
+}
+
+/// What a top-album tile is, by the catalog album found for it.
+pub fn album_kind(album: Option<&AlbumItem>) -> &'static str {
+    match album {
+        None => "none",
+        // the label is translated where it is made; an EP has its own label
+        Some(album) if album.kind == mf_i18n::t("Single") || album.kind.eq_ignore_ascii_case("single") => "single",
+        Some(_) => "album",
+    }
+}
+
 /// Finds the cover of a song or an album by its title and artist.
 pub trait CoverSearch: Send + Sync {
     fn find_cover<'a>(&'a self, kind: CoverKind, title: &'a str, artist: &'a str) -> BoxFuture<'a, Option<String>>;
+    /// The catalog album with this title and artist (None — not found, or the search can't tell).
+    fn find_album<'a>(&'a self, _title: &'a str, _artist: &'a str) -> BoxFuture<'a, Option<AlbumItem>> {
+        Box::pin(async { None })
+    }
 }
 
 /// The large cover, else the small one (None — neither).
@@ -927,15 +956,21 @@ impl CoverSearch for YouTubeService {
                     cover_of(&track.cover_large, &track.cover)
                 }
                 CoverKind::Album => {
-                    let page = self.search(&query, SearchFilter::Albums).await.ok()?;
-                    let albums = page.items.into_iter().filter_map(|item| match item {
-                        YtItem::Album(album) => Some(album),
-                        _ => None,
-                    });
-                    let album = best_album(title, artist, albums.collect())?;
+                    let album = self.find_album(title, artist).await?;
                     cover_of(&album.cover_large, &album.cover)
                 }
             }
+        })
+    }
+
+    fn find_album<'a>(&'a self, title: &'a str, artist: &'a str) -> BoxFuture<'a, Option<AlbumItem>> {
+        Box::pin(async move {
+            let page = self.search(&format!("{artist} {title}"), SearchFilter::Albums).await.ok()?;
+            let albums = page.items.into_iter().filter_map(|item| match item {
+                YtItem::Album(album) => Some(album),
+                _ => None,
+            });
+            best_album(title, artist, albums.collect())
         })
     }
 }
@@ -1120,6 +1155,10 @@ impl LastFmFeedService {
                 return;
             }
             let error = [recent.as_ref().err(), friends.as_ref().err(), albums.as_ref().err()].into_iter().flatten().next().map(ToString::to_string);
+            // every top album is checked against the catalog: the shelves show only real albums
+            for album in albums.as_deref().unwrap_or_default() {
+                service.request_cover(CoverKind::Album, &album.title, &album.artist);
+            }
             service.update(|s| {
                 s.feed_loading = false;
                 s.recent = Arc::new(recent.unwrap_or_default());
@@ -1272,15 +1311,31 @@ impl LastFmFeedService {
             };
             let (me, search) = (self.me.clone(), search.clone());
             self.rt.spawn(async move {
-                let url = search.find_cover(kind, &title, &artist).await.unwrap_or_default();
+                // an album tile also learns which catalog album it is, so it can be opened and played
+                let album = match kind {
+                    CoverKind::Album => search.find_album(&title, &artist).await,
+                    CoverKind::Track => None,
+                };
+                let url = match &album {
+                    Some(album) => cover_of(&album.cover_large, &album.cover).unwrap_or_default(),
+                    None => search.find_cover(kind, &title, &artist).await.unwrap_or_default(),
+                };
                 let Some(service) = me.upgrade() else { return };
                 let key = cover_key(kind, &title, &artist);
+                let found_album = album.is_some();
                 let covers: Option<HashMap<String, String>> = {
                     let mut state = lock(&service.covers);
                     state.running -= 1;
                     state.pending.remove(&key);
                     state.done.insert(key, url.clone());
-                    (!url.is_empty())
+                    if kind == CoverKind::Album {
+                        state.done.insert(album_kind_key(&title, &artist), album_kind(album.as_ref()).to_owned());
+                    }
+                    if let Some(album) = album {
+                        state.done.insert(album_id_key(&title, &artist), album.album_id);
+                        state.done.insert(album_uri_key(&title, &artist), album.uri);
+                    }
+                    (!url.is_empty() || found_album || kind == CoverKind::Album)
                         .then(|| state.done.iter().filter(|(_, u)| !u.is_empty()).map(|(k, u)| (k.clone(), u.clone())).collect())
                 };
                 if let Some(covers) = covers {

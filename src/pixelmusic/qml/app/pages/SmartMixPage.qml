@@ -93,8 +93,17 @@ TrackListPage {
         return (item.cover ?? "") !== "" ? item.cover : (SmartMix.covers[coverKey(kind, item.title, item.artist)] ?? "")
     }
     function askCover(kind, item) {
-        if ((item.cover ?? "") === "" && (item.title ?? "") !== "")
+        // albums are always looked up: the lookup also finds the catalog album to open and play
+        if (((item.cover ?? "") === "" || kind === "album") && (item.title ?? "") !== "")
             SmartMix.requestCover(kind, item.title, item.artist ?? "")
+    }
+    // the catalog album found for a top-album tile ("" — not found yet); key = lastfm_feed::album_id_key / album_uri_key
+    // Last.fm counts singles as albums: only what YouTube Music knows as an album or EP is shown
+    function realAlbums() {
+        return (SmartMix.topAlbums ?? []).filter(a => albumRef("albumkind", a) === "album")
+    }
+    function albumRef(which, item) {
+        return SmartMix.covers[which + "|" + coverKey("album", item.title, item.artist)] ?? ""
     }
 
     function notify(text) {
@@ -331,7 +340,7 @@ TrackListPage {
             }
 
             Label {
-                visible: (SmartMix.topAlbums ?? []).length > 0
+                visible: page.realAlbums().length > 0
                 text: I18n.t("Your top albums")
                 type: "titleMedium"
             }
@@ -339,13 +348,16 @@ TrackListPage {
                 Layout.fillWidth: true
                 spacing: 20
                 Repeater {
-                    model: (SmartMix.topAlbums ?? []).slice(0, 12)
+                    model: page.realAlbums().slice(0, 12)
                     MediaTile {
                         required property var modelData
                         cover: page.coverOf("album", modelData)
                         Component.onCompleted: page.askCover("album", modelData)
                         title: modelData.title ?? ""
                         subtitle: [modelData.artist ?? "", modelData.playCount > 0 ? I18n.t("{0} plays", modelData.playCount) : ""].filter(x => x).join(" · ")
+                        showPlay: page.albumRef("albumuri", modelData) !== ""
+                        onClicked: { const id = page.albumRef("albumid", modelData); if (id !== "") Catalog.openAlbum(id) }
+                        onPlayClicked: Player.playContext(page.albumRef("albumuri", modelData), "")
                     }
                 }
             }

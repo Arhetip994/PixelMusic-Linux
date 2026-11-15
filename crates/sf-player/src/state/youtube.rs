@@ -860,6 +860,8 @@ impl YtLane {
                     self.advance(true);
                 }
             }
+            // the speakers, not the stream: a fresh URL would not help
+            YtEvent::OutputError(error) => self.failed(error),
             YtEvent::Error(error) => {
                 if self.retried < MAX_RETRIES && self.stream.is_some() {
                     // most often an expired or refused URL: forget it and resolve again (the resolver then skips

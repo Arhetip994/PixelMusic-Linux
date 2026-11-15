@@ -575,7 +575,9 @@ async fn covers_are_looked_up_once_a_few_at_a_time_and_published() {
     service.request_cover(CoverKind::Track, " song 0", "ARTIST");
     service.request_cover(CoverKind::Track, "Missing", "Artist");
     service.request_cover(CoverKind::Album, "LA RIDE", "Prabh");
-    let snapshot = settled(&service, |s| s.covers.len() == 9).await;
+    // the album also gets its kind ("none": this fake finds no catalog album)
+    let snapshot = settled(&service, |s| s.covers.len() == 10).await;
+    assert_eq!(snapshot.covers[&album_kind_key("LA RIDE", "Prabh")], "none");
     assert_eq!(snapshot.covers[&cover_key(CoverKind::Track, "Song 3", "Artist")], "https://yt/Track/Song 3.jpg");
     assert_eq!(snapshot.covers[&cover_key(CoverKind::Album, "LA RIDE", "Prabh")], "https://yt/Album/LA RIDE.jpg");
     // wait for the miss too, then ask everything again: nothing new runs
@@ -599,4 +601,13 @@ async fn without_a_cover_search_nothing_is_asked() {
     let service = feed_service("http://127.0.0.1:9/2.0/", (KEY, USER));
     service.request_cover(CoverKind::Track, "Song", "Artist");
     assert!(service.snapshot().covers.is_empty());
+}
+
+#[test]
+fn singles_and_missing_albums_are_not_albums() {
+    let item = |kind: &str| AlbumItem { kind: kind.to_owned(), ..Default::default() };
+    assert_eq!(album_kind(None), "none");
+    assert_eq!(album_kind(Some(&item(&md3_model::album_kind_label("single", 0)))), "single");
+    assert_eq!(album_kind(Some(&item(&md3_model::album_kind_label("ep", 0)))), "album");
+    assert_eq!(album_kind(Some(&item(&md3_model::album_kind_label("album", 0)))), "album");
 }

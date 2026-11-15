@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use librespot_playback::audio_backend::Sink;
 use librespot_playback::config::VolumeCtrl;
@@ -49,6 +49,9 @@ pub enum YtEvent {
     Position(u64),
     Ended,
     Error(String),
+    /// The audio output went away and did not come back (already UI text): not the stream's fault, so the
+    /// track must not be resolved again.
+    OutputError(String),
 }
 
 pub type Notify = Arc<dyn Fn(u64, YtEvent) + Send + Sync>;
@@ -58,6 +61,11 @@ pub type SinkFactory = Box<dyn FnOnce() -> Box<dyn Sink> + Send>;
 
 /// How often `Position` is reported while playing.
 const POSITION_EVERY_MS: u64 = 500;
+/// How long a lost output (Windows switching to headphones, a Bluetooth device connecting) is waited for
+/// before the track stops. The sink itself already retries for a few seconds on every write.
+const OUTPUT_PATIENCE: Duration = Duration::from_secs(30);
+/// The pause between two attempts to write to a lost output.
+const OUTPUT_RETRY: Duration = Duration::from_millis(750);
 
 enum Input {
     Command(YtCommand),
@@ -232,6 +240,8 @@ struct Worker {
     playing: bool,
     gain: f64,
     last_report: u64,
+    /// While the output is lost: when it was first lost, and when to try it again.
+    output_lost: Option<(Instant, Instant)>,
 }
 
 impl Worker {
@@ -253,6 +263,7 @@ impl Worker {
             playing: false,
             gain: 1.0,
             last_report: 0,
+            output_lost: None,
         }
     }
 
@@ -263,7 +274,15 @@ impl Worker {
     fn run(mut self, rx: Receiver<Input>) {
         loop {
             let busy = self.playing && self.decoder.is_some();
-            let input = if busy {
+            let retry_in = self.output_lost.filter(|_| busy).map(|(_, at)| at.saturating_duration_since(Instant::now()));
+            let input = if let Some(wait) = retry_in.filter(|wait| !wait.is_zero()) {
+                // the output is lost: commands still come through while it is waited for
+                match rx.recv_timeout(wait) {
+                    Ok(input) => Some(input),
+                    Err(RecvTimeoutError::Timeout) => continue,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                }
+            } else if busy {
                 match rx.try_recv() {
                     Ok(input) => Some(input),
                     Err(mpsc::TryRecvError::Empty) => None,
@@ -309,6 +328,7 @@ impl Worker {
                 {
                     let position_ms = self.heard(decoder.position_ms());
                     self.playing = false;
+                    self.output_lost = None;
                     self.stop_sink();
                     self.emit(YtEvent::Paused { position_ms });
                 }
@@ -327,6 +347,7 @@ impl Worker {
                 }
             }
             YtCommand::Stop => {
+                self.output_lost = None;
                 self.pending = None;
                 self.seeking = None;
                 self.decoder = None;
@@ -345,6 +366,7 @@ impl Worker {
         self.decoder = None;
         self.seeking = None;
         self.playing = false;
+        self.output_lost = None;
         self.seq = seq;
         self.gain = if self.output.normalise { normalisation_factor(stream.loudness_db) } else { 1.0 };
         self.output.normalisation.store(self.gain.to_bits(), Ordering::Relaxed);
@@ -450,9 +472,18 @@ impl Worker {
                         *sample *= self.gain;
                     }
                 }
+                if self.output_lost.is_some() && !self.started {
+                    // a lost output is started anew before each attempt
+                    if let Err(error) = self.start_sink() {
+                        return self.output_failed(error);
+                    }
+                }
                 let sink = self.sink.as_mut().expect("sink is open while playing");
                 if let Err(error) = sink.write(AudioPacket::Samples(samples), &mut self.converter) {
-                    return self.fail(error.to_string());
+                    return self.output_failed(error.to_string());
+                }
+                if self.output_lost.take().is_some() {
+                    log::info!("youtube player: the audio output is back");
                 }
                 let heard = self.heard(position);
                 if heard >= self.last_report + POSITION_EVERY_MS {
@@ -474,6 +505,26 @@ impl Worker {
     /// The decoder's position less what the output still holds.
     fn heard(&self, decoded_ms: u64) -> u64 {
         decoded_ms.saturating_sub(self.output.latency_ms)
+    }
+
+    /// The output refused sound (most often Windows moving to another device). The track and its position are
+    /// kept and the output is tried again until `OUTPUT_PATIENCE` runs out; only then does the track stop.
+    fn output_failed(&mut self, error: String) {
+        let now = Instant::now();
+        let since = self.output_lost.map_or(now, |(since, _)| since);
+        if now.duration_since(since) < OUTPUT_PATIENCE {
+            log::warn!("youtube player: audio output lost ({error}); trying again");
+            self.stop_sink();
+            self.output_lost = Some((since, now + OUTPUT_RETRY));
+            return;
+        }
+        log::warn!("youtube player: audio output gone for good: {error}");
+        self.output_lost = None;
+        self.decoder = None;
+        self.seeking = None;
+        self.playing = false;
+        self.stop_sink();
+        self.emit(YtEvent::OutputError(mf_i18n::t(crate::engine::sink::OUTPUT_STOPPED)));
     }
 
     fn fail(&mut self, error: String) {
@@ -618,6 +669,43 @@ mod tests {
         let recorded = h.recorded.lock().unwrap();
         assert!((86_000..=91_000).contains(&(recorded.samples.len() / 2)));
         assert_eq!((recorded.starts, recorded.stops), (1, 1));
+    }
+
+    /// Refuses its first writes, as an output does while Windows moves to another device.
+    struct FlakySink {
+        refusals: usize,
+        writes: Arc<Mutex<usize>>,
+    }
+
+    impl Sink for FlakySink {
+        fn write(&mut self, _: AudioPacket, _: &mut Converter) -> SinkResult<()> {
+            if self.refusals > 0 {
+                self.refusals -= 1;
+                return Err(librespot_playback::audio_backend::SinkError::ConnectionRefused("device changed".into()));
+            }
+            *self.writes.lock().unwrap() += 1;
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_lost_output_is_waited_for_and_the_track_goes_on() {
+        let writes = Arc::new(Mutex::new(0));
+        let sink_writes = writes.clone();
+        let (tx, events) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        let notify: Notify = Arc::new(move |seq, event| {
+            let _ = tx.lock().unwrap().send((seq, event));
+        });
+        let opener: Opener =
+            Arc::new(|stream: &YtStream| Ok(Box::new(std::io::Cursor::new(fixture(&stream.url))) as Box<dyn MediaSource>));
+        let make: SinkFactory = Box::new(move || Box::new(FlakySink { refusals: 2, writes: sink_writes }) as Box<dyn Sink>);
+        let player = YtPlayer::with_sink(make, false, opener, notify);
+        let h = Harness { player, recorded: Arc::default(), events };
+        h.player.send(YtCommand::Load { seq: 1, stream: Box::new(stream("tone_44k_stereo.m4a")), position_ms: 0, play: true });
+        let events = h.until(|(_, event)| *event == YtEvent::Ended);
+        assert!(!events.iter().any(|(_, event)| matches!(event, YtEvent::Error(_) | YtEvent::OutputError(_))), "{events:?}");
+        assert!(*writes.lock().unwrap() > 0);
     }
 
     #[test]

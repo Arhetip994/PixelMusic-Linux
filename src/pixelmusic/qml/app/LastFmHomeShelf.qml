@@ -22,8 +22,14 @@ ColumnLayout {
         return (item.cover ?? "") !== "" ? item.cover : (SmartMix.covers[key] ?? "")
     }
     function askCover(kind, item) {
-        if ((item.cover ?? "") === "" && (item.title ?? "") !== "")
+        // albums are always looked up: the lookup also finds the catalog album to open and play
+        if (((item.cover ?? "") === "" || kind === "album") && (item.title ?? "") !== "")
             SmartMix.requestCover(kind, item.title, item.artist ?? "")
+    }
+    // the catalog album found for a top-album tile ("" — not found yet); key = lastfm_feed::album_id_key / album_uri_key
+    function albumRef(which, item) {
+        const key = ("album|" + (item.artist ?? "").trim() + "|" + (item.title ?? "").trim()).toLowerCase()
+        return SmartMix.covers[which + "|" + key] ?? ""
     }
 
     component Strip: ColumnLayout {
@@ -108,7 +114,8 @@ ColumnLayout {
     }
     Strip {
         title: I18n.t("Your top albums")
-        items: (SmartMix.topAlbums ?? []).slice(0, 15)
+        // Last.fm counts singles as albums: only what YouTube Music knows as an album or EP is shown
+        items: (SmartMix.topAlbums ?? []).filter(a => root.albumRef("albumkind", a) === "album").slice(0, 15)
         tile: MediaTile {
             readonly property var e: parent ? parent.modelData : ({})
             size: 168
@@ -116,6 +123,9 @@ ColumnLayout {
             title: e.title ?? ""
             subtitle: [e.artist ?? "", e.playCount > 0 ? I18n.t("{0} plays", e.playCount) : ""].filter(x => x).join(" · ")
             Component.onCompleted: root.askCover("album", e)
+            showPlay: root.albumRef("albumuri", e) !== ""
+            onClicked: { const id = root.albumRef("albumid", e); if (id !== "") Catalog.openAlbum(id) }
+            onPlayClicked: Player.playContext(root.albumRef("albumuri", e), "")
         }
     }
     Strip {
