@@ -171,9 +171,19 @@ fn browser_candidates() -> Vec<PathBuf> {
     );
     #[cfg(all(unix, not(target_os = "macos")))]
     if let Some(path) = std::env::var_os("PATH") {
-        for name in
-            ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "microsoft-edge-stable"]
-        {
+        for name in [
+            "google-chrome",
+            "google-chrome-stable",
+            "chromium",
+            "chromium-browser",
+            "microsoft-edge",
+            "microsoft-edge-stable",
+            "brave",
+            "brave-browser",
+            "vivaldi",
+            "vivaldi-stable",
+            "opera",
+        ] {
             candidates.extend(std::env::split_paths(&path).map(|dir| dir.join(name)));
         }
     }

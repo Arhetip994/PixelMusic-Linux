@@ -1,457 +1,80 @@
-<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a> · <a href="README.pt-BR.md">Português</a></p>
+# Pixel Music for Linux
 
 <div align="center">
+  <img src="preview.png" width="850" alt="Pixel Music Linux Preview">
+  <p><b>Modern native YouTube Music & Spotify player for Linux</b><br>
+  Built with Qt 6 (Material 3 Expressive) and a blazing-fast Rust backend with dynamic theme adaptation based on album art.</p>
 
-<h1>
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/wordmark-on-dark.svg">
-  <img src="docs/brand/wordmark.svg" width="420" alt="Pixel Music">
-</picture>
-</h1>
-
-[![Release build](https://github.com/Rajat-Solankii/PixelMusic/actions/workflows/release.yml/badge.svg)](https://github.com/Rajat-Solankii/PixelMusic/actions/workflows/release.yml)
-[![Release](https://img.shields.io/github/v/release/Rajat-Solankii/PixelMusic?label=release)](https://github.com/Rajat-Solankii/PixelMusic/releases/latest)
-
-Desktop Spotify client built with Rust and Qt Quick, with a Material 3 Expressive interface.<br>
-Windows and Linux; macOS is experimental.
-
-[Download](#download) ·
-[Screenshots](#screenshots) ·
-[Features](#features) ·
-[Limitations](#whats-missing-and-why) ·
-[Installation](#installation) ·
-[Building](#building-from-source) ·
-[Data and privacy](#where-data-is-stored)
-
+  <p>
+    <b>English</b> | <a href="README.ru.md">Русский</a>
+  </p>
 </div>
 
-<br>
+---
 
-Pixel Music replaces the official Spotify desktop app for listening to music in a regular native window. The
-interface is written in QML (Qt 6.12) with no browser engine, and the logic is in Rust. Audio is played by
-[librespot](https://github.com/librespot-org/librespot) inside the app's own process, so playback on the computer
-requires Spotify Premium. Interface colors follow the cover of the current track. The interface follows the system
-language: Russian on a Russian system, English otherwise; Settings → Language can fix either one.
+## 📦 Ready-to-use Packages for All Distributions
 
-The project is assembled from two MIT-licensed projects: the Spotify side comes from
-[spotifast](https://github.com/crmne/spotifast) (crmne), the interface from
-[yamusic-md3](https://github.com/yaskorinov/yamusic-md3) (yaskorinov). See
-[Origin and license](#origin-and-license) for details.
+All release builds for version **1.0.0-beta** are available on the [Releases](https://github.com/Arhetip994/PixelMusic-Linux/releases) page.
 
-## Download
+| Distribution / Package Type | File | How to Install / Run |
+|---|---|---|
+| **Universal (any Linux distro)** | `PixelMusic-1.0.0-beta-x86_64.AppImage` | `chmod +x PixelMusic-*.AppImage && ./PixelMusic-*.AppImage` |
+| **Portable Archive** | `pixelmusic-1.0.0-beta-linux-x86_64.tar.gz` | Extract and run `AppDir/AppRun` |
+| **Ubuntu / Debian / Linux Mint / Pop!_OS** | `pixelmusic_1.0.0-beta_amd64.deb` | `sudo apt install ./pixelmusic_1.0.0-beta_amd64.deb` |
+| **Arch Linux / CachyOS / Manjaro** | `pixelmusic-1.0.0-beta-1-x86_64.pkg.tar.zst` | `sudo pacman -U pixelmusic-1.0.0-beta-1-x86_64.pkg.tar.zst` |
 
-Ready builds of every version are on the [Releases page](https://github.com/Rajat-Solankii/PixelMusic/releases).
-Take the file for your system from the [latest release](https://github.com/Rajat-Solankii/PixelMusic/releases/latest):
+---
 
-| System | File |
-| --- | --- |
-| Windows 10/11, x64 | `PixelMusic-<version>-Setup.exe` (installer, no admin rights needed) or `PixelMusic-<version>-windows-x64-portable.zip` |
-| Linux x86_64 | `PixelMusic-<version>-x86_64.AppImage` or `pixelmusic-<version>-linux-x86_64.tar.gz` |
-| Linux aarch64 | `PixelMusic-<version>-aarch64.AppImage` or `pixelmusic-<version>-linux-aarch64.tar.gz` |
-| macOS 13+, Apple silicon | `PixelMusic-<version>-macos-arm64.dmg` (experimental) |
-| macOS 13+, Intel | `PixelMusic-<version>-macos-x86_64.dmg` (experimental) |
+## ✨ Features
 
-`SHA256SUMS.txt` in the same release lists the checksums. Starting with 0.2.1 the app checks Releases for new
-versions on its own (Settings → Updates). The installer, the portable folder and the AppImage download and
-apply an update in place; on macOS the new `.dmg` opens; a copy from `tar.gz` only links to the release page.
+* **YouTube Music & Spotify:** Seamless streaming via InnerTube API, full stream cipher decryption, and algorithmic recommendations.
+* **Material 3 Expressive:** Ultra-lightweight native interface written in Qt Quick (QML) without Electron/Chromium overhead. Minimal CPU and RAM footprint (~50-100 MB).
+* **Dynamic Color Theming:** The entire UI theme dynamically adapts its palette to the color scheme of the currently playing album art (Material You / Monet color extraction).
+* **Deep Linux Desktop Integration:**
+  * Media keys and system tray integration via the **MPRIS2 D-Bus** specification.
+  * Native **Wayland** and **X11** display server support.
+  * Secure credential & token storage via Linux Secret Service (KWallet / GNOME Keyring / KeePassXC).
+  * KDE Plasma Dynamic Island / Mini-player support via KWin scripts.
+* **Synchronized Lyrics:** Line-by-line synced lyrics powered by LRCLIB and NetEase Cloud Music.
+* **Last.fm:** Built-in scrobbling and Smart Mix playlist generation.
 
-## Screenshots
+---
 
-Taken with a Premium account and music playing; the colours follow the cover of the current track.
+## 🚀 Installation & Quick Start
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/pixelmusic/home-dark.png" alt="Home, dark theme"></td>
-    <td width="50%"><img src="docs/screenshots/pixelmusic/home-light.png" alt="Home, light theme"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/pixelmusic/now-playing.png" alt="Now Playing with synced lyrics"></td>
-    <td><img src="docs/screenshots/pixelmusic/artist.png" alt="Artist page"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/pixelmusic/releases.png" alt="New releases"></td>
-    <td><img src="docs/screenshots/pixelmusic/settings.png" alt="Settings"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/pixelmusic/account.png" alt="Spotify account"></td>
-    <td><img src="docs/screenshots/pixelmusic/playback.png" alt="Playback on this computer"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/pixelmusic/compact-900x640.png" alt="900×640 window with a narrow sidebar"></td>
-    <td><img src="docs/screenshots/pixelmusic/compact-640x720.png" alt="Compact layout, 640×720"></td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/screenshots/pixelmusic/mini-300x120.png" alt="Mini player, 300×120"></td>
-    <td valign="top"><sub>The mini player: the window switches to it when it is narrower than 480 or shorter than
-      400 pixels.</sub></td>
-  </tr>
-</table>
-
-## Features
-
-- Sign-in through the browser with OAuth PKCE. You type your password on the Spotify website; the app only
-  receives a one-time code on `127.0.0.1`.
-- Playback on this computer through librespot (Premium required): 96, 160 or 320 kbit/s, volume normalization,
-  gapless playback, crossfade up to 12 seconds, speed from 0.5× to 2× without changing pitch, similar music after
-  an album or playlist ends, output device selection, and an audio cache from 256 MB to 10 GB.
-- The computer shows up in Spotify Connect under the name set in Settings. You can move playback to a phone or a
-  speaker and back; while music plays on another device, the window works as a remote with that device's
-  volume. Speakers on the local network that are not signed in yet are found over mDNS and can be connected
-  from the devices menu.
-- Queue: a manual queue kept separate from the context, "Play next", dragging tracks into the queue and
-  reordering rows, removal with undo.
-- Radio from a track, artist, album or playlist, and from any track in search results. A station can be
-  regenerated or saved as a playlist.
-- Library: playlists with folders, pinning to the top (in this app only), Liked Songs, albums, artists,
-  podcasts. Grid or list view, sorting.
-- Editing your own playlists: name, description, cover, public or private, reordering tracks with the mouse,
-  removal with an Undo button, adding tracks from recent, liked and search, creating and deleting playlists.
-- Search across tracks, albums, artists, playlists and podcasts. An `open.spotify.com` link can be pasted or
-  dropped onto the window.
-- Artist page with monthly listeners, biography, popular tracks and releases. The New releases page collects
-  recent releases from artists you follow.
-- Podcasts: show and episode pages, listening progress, chapters, skip back 10 seconds and forward 30.
-- Synced lyrics. The app takes lyrics from Spotify first and falls back to LRCLIB, NetEase and Musixmatch.
-  Three styles to choose from (classic, Spicy, karaoke), text size
-  and background scrim.
-- Material You color scheme from the current track's cover or from a chosen accent color, light and dark themes.
-  Animations can be shortened or follow the system setting.
-- Three window layouts: full, compact for a narrow window, and a mini player with an "Always on top" option
-  (not available on Wayland).
-- Its own window frame on every OS: Material 3 minimize, maximize and close buttons, rounded corners (on Windows 11
-  drawn by the system; Windows 10 keeps square ones), square corners when maximized.
-- Media keys, the SMTC tile on Windows and MPRIS on Linux, a tray icon with minimize-on-close, single running
-  instance.
-- Interface in English, Russian or Portuguese (Brazil). By default it follows the system language; Settings → Language switches it.
-- Proxy: system, HTTP or SOCKS5, with username and password. Sign-in, Web API, playback, lyrics and images all
-  go through it.
-
-## What's missing and why
-
-- librespot only works with Premium accounts. With a free account music does not play on the computer, and
-  radio, which is built through librespot, is blocked. The Spotify Web API also allows controlling other devices
-  only with Premium. Without it you still have the library, search and playlist editing.
-- Spotify serves librespot up to 320 kbit/s Ogg Vorbis, so there is no lossless.
-- Crossfade and speed only work when playing on this computer. They are not passed to a speaker or phone over
-  Connect, and other Spotify devices see the track position with corrections once per second.
-- Tracks cannot be downloaded for offline listening; the app does not bypass DRM. The audio cache only speeds
-  up repeat playback.
-- The app does not update itself; a new version has to be installed manually.
-- The shared Web API Client ID is one for all users of the app, and Spotify often rate-limits it. That is why
-  the app goes through your Spotify session first and keeps the Web API as a fallback. Details and how to set up
-  your own Client ID are in [Spotify session and Web API](#spotify-session-and-web-api).
-- Some limits come from the Web API itself. The context queue shows about 20 upcoming tracks, because the API
-  does not return the total. Removing a track from a playlist removes all of its duplicates, because the delete
-  method does not accept a position. Spotify history is limited to the last 50 plays.
-- The app is unofficial. Spotify may restrict third-party clients, and you are responsible for how your account
-  is used.
-
-## Requirements
-
-- A Spotify account. Premium is needed for audio on this computer and for radio.
-- Windows 10 1809 or later (x64); Linux x86_64 or aarch64; macOS 13 or later (the build is experimental; media
-  keys on macOS are untested).
-- Free local ports 8989 and 8898: Spotify sends the browser back to them after sign-in. If the firewall asks,
-  allow connections on `127.0.0.1`.
-
-## Installation
-
-The quickest way is a ready build from [Download](#download). To build from source instead:
-
-### Windows
-
-You need Rust, Qt 6.12 and Build Tools for Visual Studio (details in [Building](#windows-1)). The script builds
-the app and the installer:
-
-```powershell
-git clone https://github.com/Rajat-Solankii/PixelMusic-src
-cd pixelmusic
-.\build_windows.ps1 -QtDir C:\Qt\6.12.0\msvc2022_64
-```
-
-`target\dist\` will contain `PixelMusic-<version>-Setup.exe` and a portable `pixelmusic\` folder. The installer
-does not need administrator rights and installs into `%LocalAppData%\Programs\PixelMusic`.
-
-### Linux
-
+### 1. AppImage (Recommended, works on all distributions)
 ```bash
-git clone https://github.com/Rajat-Solankii/PixelMusic-src
-cd pixelmusic
-./install.sh
+wget https://github.com/Arhetip994/PixelMusic-Linux/releases/download/v1.0.0-beta/PixelMusic-1.0.0-beta-x86_64.AppImage
+chmod +x PixelMusic-1.0.0-beta-x86_64.AppImage
+./PixelMusic-1.0.0-beta-x86_64.AppImage
 ```
 
-The script works with apt, pacman, dnf and zypper. It first shows which system packages it will install with
-sudo and waits for confirmation. Rust is installed with rustup into `~/.cargo`. If the system has no Qt 6.12
-with QML modules, the script downloads one next to the sources, about 250 MB. The first build takes 5 to 15
-minutes; after that you get the `~/.local/bin/pixelmusic` command and an entry in the application menu. Running
-the script again updates the app.
-
+### 2. Ubuntu / Debian / Linux Mint / Pop!_OS
 ```bash
-./install.sh --uninstall   # remove the command and the menu entry; settings, data and sign-in are kept
+wget https://github.com/Arhetip994/PixelMusic-Linux/releases/download/v1.0.0-beta/pixelmusic_1.0.0-beta_amd64.deb
+sudo apt update
+sudo apt install ./pixelmusic_1.0.0-beta_amd64.deb
 ```
 
-### macOS
-
-There is no installer; build the `.app` as described in [Building](#macos-experimental).
-
-## First run
-
-Spotify grants two separate permissions, and the app asks for them one at a time.
-
-1. Account sign-in: Account → Sign in with Spotify. A browser opens, and after you confirm, Spotify sends it
-   back to `http://127.0.0.1:8989/login`. This is enough for the library, search and playlists.
-2. Playback on this computer: the Playback screen or the devices menu. The second confirmation in the browser
-   comes back to `http://127.0.0.1:8898/login`. After that the computer appears in Spotify Connect.
-
-Without the second step Pixel Music works as a remote for other devices (with Premium).
-
-## Spotify session and Web API
-
-The app has two ways to get Spotify data.
-
-- The librespot session. This is the same protocol the official app uses; it becomes available after the
-  second sign-in step (playback on this computer). The session runs under your account, and Web API quotas do
-  not apply to it.
-- The Web API (`api.spotify.com`) through a Client ID. By default this is the app's shared Client ID, one for all
-  of its users. Spotify often answers it with 429 ("too many requests") and sometimes with `QUOTA_EXCEEDED`, in
-  which case the Web API does not respond at all until the quota resets, which can take up to a day.
-
-Reads go through the session first; the Web API is asked only when there is no session, it did not answer in
-time, or it does not support that request. The session currently serves playlists (the list, their contents,
-editing tracks), Liked Songs, saved albums and artists, album, artist and track pages, search and New releases.
-Still Web API only: podcasts in the library and their pages, listening history, the home shelves "Top" and
-"Made for you", radio seed labels, creating a playlist, changing its name or cover, following someone else's
-playlist, and remote control of another device (commands and polling its state).
-
-To make the shared Client ID last longer, the Web API client:
-
-- splits requests into three queues: the page you opened, background refresh, and player state polling.
-  Background gets up to two thirds of the budget (the shared key allows 40 requests per 30 seconds), polling a
-  quarter, pages all of it;
-- merges identical requests already in flight and keeps GET responses for 20 seconds (any write clears the
-  cache and keeps it from filling for a minute);
-- after a 429 or an exhausted quota, keeps background and polling off the network, while pages retry every 15
-  seconds, or every minute for a quota. Player polling waits longer after each consecutive 429: one minute, two,
-  four, up to ten minutes.
-
-While a limit is active, Settings → Account shows a "Web API limited" notice with an estimated end time.
-
-### Your own Client ID
-
-If the shared key keeps hitting limits, register your own Spotify app. Its limits are shared only with you.
-
-1. Open [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard), sign in and click
-   "Create app".
-2. Any name and description will do. Add `http://127.0.0.1:8989/login` to Redirect URIs and tick Web API in
-   the API section. Save.
-3. A new app runs in development mode and only lets in users from its list. Add the email of your Spotify
-   account under "User Management".
-4. Copy the Client ID (32 characters) from the app page.
-5. In Pixel Music: Settings → Account → Personal Spotify app → Set up. The form shows the redirect URI from step 2
-   with a copy button. Paste the Client ID, click Save and confirm access in the browser.
-
-Even with your own Client ID, some Web API requests go through the shared one: other people's playlists, the
-list of your playlists, playlist search, and popular tracks and related artists on the artist page.
-
-## Where data is stored
-
-| What | Windows | Linux | macOS |
-|---|---|---|---|
-| Settings | registry `HKCU\Software\pixelmusic\PixelMusic` | `~/.config/pixelmusic/PixelMusic.conf` | `~/Library/Preferences/pixelmusic/PixelMusic.conf` |
-| Data (player session, history) | `%APPDATA%\pixelmusic\PixelMusic` | `~/.local/share/pixelmusic/PixelMusic` | `~/Library/Application Support/pixelmusic/PixelMusic` |
-| Cache (audio, covers, lyrics) | `%LOCALAPPDATA%\pixelmusic\PixelMusic\cache` | `~/.cache/pixelmusic/PixelMusic` | `~/Library/Caches/pixelmusic/PixelMusic` |
-| Tokens and proxy password | Credential Manager | Secret Service (keyring) | Keychain |
-
-Secrets are kept only in the system store under the name `pixelmusic`. Sign out in Settings removes all Spotify
-permissions from the store. The cache stays; it can be cleared in Settings → Storage.
-
-## Privacy
-
-The app has no telemetry or usage statistics of its own. Network requests go to Spotify servers (sign-in, Web
-API, playback, covers) and to the lyrics services LRCLIB, NetEase and Musixmatch. On the local network the app
-looks for Spotify Connect devices over mDNS.
-
-You enter your Spotify password only on `accounts.spotify.com` in your own browser. The app requests access to
-the library, playlists and playback control, and reads your plan (Free or Premium) through `user-read-private`.
-It does not ask for access to your email.
-
-## Keyboard shortcuts
-
-| Keys | Action |
-|---|---|
-| <kbd>Space</kbd> | play or pause |
-| <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>←</kbd>, media keys | next or previous track |
-| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | volume |
-| <kbd>Shift</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | seek 10 seconds |
-| <kbd>Ctrl</kbd> + <kbd>P</kbd> | full-screen player |
-| <kbd>Ctrl</kbd> + <kbd>L</kbd> | lyrics |
-| <kbd>Ctrl</kbd> + <kbd>F</kbd> | search in the list; press again for global search |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> | library |
-| <kbd>Ctrl</kbd> + <kbd>B</kbd> | collapse or expand the sidebar |
-| <kbd>Ctrl</kbd> + <kbd>,</kbd> | settings |
-| <kbd>Alt</kbd> + <kbd>←</kbd>, mouse back button | back |
-| <kbd>F11</kbd> | full screen |
-| <kbd>Ctrl</kbd> + <kbd>Q</kbd> | quit on Linux (<kbd>⌘</kbd> + <kbd>Q</kbd> on macOS) |
-
-## Building from source
-
-Common requirements:
-
-- Rust 1.98 or later ([rustup](https://rustup.rs); on Windows the `stable-x86_64-pc-windows-msvc` toolchain).
-- Qt 6.12 with the qtdeclarative, qtsvg, qtshadertools and qtimageformats modules. It can be installed with the
-  Qt Online Installer or with [`install_qt.py`](.github/scripts/install_qt.py), the script CI uses: it downloads
-  archives from download.qt.io and verifies checksums.
-- Python 3 for `install_qt.py`.
-
-cxx-qt finds Qt through the `QMAKE` variable (the path to `qmake6`). The built app looks for QML in this order:
-`$PIXELMUSIC_QML_DIR`, then `qml/` next to the executable, then `src/pixelmusic/qml` in the repository, so
-`cargo run` works from the source tree.
-
-Build with `--locked`. `Cargo.lock` pins `vergen 9.0.6`; version 9.1 breaks the `librespot-core` build script.
-Do not run `cargo update` without `-p`.
-
-### Windows
-
-You need [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with
-the "Desktop development with C++" workload, Rust (msvc), Qt 6.12 `msvc2022_64`, PowerShell 7, and, for the
-installer, [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`).
-
-```powershell
-python .github\scripts\install_qt.py --out C:\Qt\6.12.0\msvc2022_64   # if Qt is not installed yet
-.\build_windows.ps1 -QtDir C:\Qt\6.12.0\msvc2022_64
-```
-
-[`build_windows.ps1`](build_windows.ps1) runs `cargo build --locked --release -p pixelmusic`, assembles the exe,
-`qml\`, `assets\`, the Qt libraries (through windeployqt) and the MSVC runtime in `target\dist\pixelmusic\`, then
-calls Inno Setup if it finds it. Without `-QtDir`, the script looks for Qt in `$env:QTDIR`, next to
-`$env:QMAKE`, in `C:\Qt\6.12.0\msvc2022_64` and in `~\Qt\6.12.0\msvc2022_64`.
-
-| Flag | What it does |
-|---|---|
-| `-SkipInstaller` | skip the Inno Setup step |
-| `-Portable` | also produce `PixelMusic-<version>-windows-x64-portable.zip` |
-| `-SkipBuild` | use an existing `target\<profile>\pixelmusic.exe` |
-| `-CargoProfile debug` | debug build |
-| `-Version 1.2.3` | installer version (taken from `Cargo.toml` by default) |
-| `-OutDir DIR` | output directory (`target\dist` by default) |
-
-For development without packaging:
-
-```powershell
-.\run_windows.bat --new-instance      # cargo run --release with the Qt it finds; arguments go to the app
-```
-
-or by hand:
-
-```powershell
-$env:QMAKE = "C:\Qt\6.12.0\msvc2022_64\bin\qmake6.exe"
-$env:PATH = "C:\Qt\6.12.0\msvc2022_64\bin;$env:PATH"
-cargo run --locked -p pixelmusic
-```
-
-### Linux
-
-The easiest way is `./install.sh` (see [Installation](#linux)). By hand on Debian or Ubuntu:
-
+### 3. Arch Linux / CachyOS / Manjaro
 ```bash
-sudo apt install build-essential pkg-config lld python3 7zip libasound2-dev libpulse-dev \
-    libgl-dev libegl-dev libxkbcommon-dev libfontconfig1-dev libdbus-1-dev libxcb-cursor0 libxkbcommon-x11-0
-
-python3 .github/scripts/install_qt.py --out ~/Qt/6.12.0/gcc_64
-export QMAKE=~/Qt/6.12.0/gcc_64/bin/qmake6 LD_LIBRARY_PATH=~/Qt/6.12.0/gcc_64/lib
-
-cargo run --locked --release -p pixelmusic
+wget https://github.com/Arhetip994/PixelMusic-Linux/releases/download/v1.0.0-beta/pixelmusic-1.0.0-beta-1-x86_64.pkg.tar.zst
+sudo pacman -U pixelmusic-1.0.0-beta-1-x86_64.pkg.tar.zst
 ```
 
-On older Ubuntu releases the `7zip` package is called `p7zip-full`. On Arch:
-`sudo pacman -S base-devel lld alsa-lib libpulse 7zip`. cxx-qt does not link with GNU ld.bfd; you need `lld`,
-`mold` or `gold`.
+---
 
-The AppImage and `tar.gz` are built by [`package_linux.sh`](.github/scripts/package_linux.sh); the output goes to
-`target/dist/`:
+## 🔒 Checksum Verification
 
+SHA256 checksums are published in [SHA256SUMS.txt](https://github.com/Arhetip994/PixelMusic-Linux/releases/download/v1.0.0-beta/SHA256SUMS.txt):
 ```bash
-bash .github/scripts/package_linux.sh 0.1.0
+sha256sum -c SHA256SUMS.txt
 ```
 
-### macOS (experimental)
+---
 
-```bash
-brew install sevenzip
-python3 .github/scripts/install_qt.py --host mac --out ~/Qt/6.12.0/macos
-export QMAKE=~/Qt/6.12.0/macos/bin/qmake6
-cargo build --locked --release -p pixelmusic
-bash .github/scripts/package_macos.sh 0.1.0   # target/dist/PixelMusic.app and .dmg
-```
+## 📄 License & Credits
 
-### Command-line flags and variables
-
-| Flag | What it does |
-|---|---|
-| `--offline` | do not restore the sign-in from the secret store |
-| `--new-instance` | start a second instance even if the app is already open |
-| `--light` | light theme |
-| `--size 1280x800` | window size |
-| `--screenshot shot.png`, `--delay 1500` | save a screenshot of the window after the given number of milliseconds and exit |
-| `--config-dir DIR` | separate settings directory |
-| `--set key=value` | initial window property, for example `--set startPage=settings` |
-| `--gallery` | Material 3 component gallery |
-
-Environment variables: `PIXELMUSIC_QML_DIR` sets a custom QML directory, `PIXELMUSIC_SESSION_FILE` sets the
-player session file, `RUST_LOG` controls logging (for example `RUST_LOG=pixelmusic=debug,sf_player=debug`).
-
-### Tests and CI
-
-```bash
-cargo test --locked --workspace
-```
-
-[`build.yml`](.github/workflows/build.yml) runs on pull requests to `main` and manually. The Windows build (tests,
-installer, portable archive, a check screenshot of the window) is required. Linux and macOS are built on a
-best-effort basis; their failure does not fail the whole run.
-
-## How it works
-
-The interface is written in QML; the Material 3 Expressive components live in `src/pixelmusic/qml/Md3`. The Rust
-core is connected to QML through [cxx-qt](https://github.com/KDAB/cxx-qt). Async code runs in a single tokio
-runtime, and the Qt UI thread receives ready-made state snapshots.
-
-| Crate | What it does |
-|---|---|
-| `md3-model` | data types for QML: tracks, albums, playlists, devices |
-| `sf-auth` | OAuth PKCE sign-in, storing permissions in the system secret store, proxy |
-| `sf-api` | Spotify Web API client: priority queues, GET merging and caching, cooldown after 429 and quota errors |
-| `sf-player` | librespot and Spotify Connect, queue, reconciling local and remote playback |
-| `sf-services` | sign-in, library, catalog, radio, home, lyrics, devices, history |
-| `mf-theme` | Material You schemes from a cover or a chosen color |
-| `mf-lyrics` | lyrics from several sources, LRC parsing, cache |
-| `mf-platform` | directories, settings, MPRIS, single instance |
-| `mf-i18n` | interface translation: English strings in the code, Russian and Portuguese dictionaries from `i18n/ru/*.json` and `i18n/pt/*.json` |
-| `pixelmusic` | the executable: QML bridges, command-line flags, image cache, window frame on Windows |
-
-## Origin and license
-
-Pixel Music is based on two MIT-licensed projects:
-
-- [spotifast](https://github.com/crmne/spotifast) (Carmine Paolino, crmne): sign-in, Web API client, playback
-  through librespot, Spotify Connect, queue, library and radio (`crates/sf-*`).
-- [yamusic-md3](https://github.com/yaskorinov/yamusic-md3) (yaskorinov and contributors): the QML interface and
-  the Material 3 Expressive component library, the cxx-qt shell, cover-based theming, lyrics, platform services,
-  build scripts (`src/pixelmusic/qml`, `crates/pixelmusic`, `crates/mf-*`).
-
-Third-party components: [librespot](https://github.com/librespot-org/librespot) (MIT, our own fork
-[fatyzzz/librespot](https://github.com/fatyzzz/librespot) with crmne's patches),
-[fastframe](https://github.com/dennisgr7/fastframe) (MIT, audio output and media keys),
-[cxx-qt](https://github.com/KDAB/cxx-qt) (MIT or Apache-2.0), [Qt 6](https://www.qt.io) (LGPL-3.0, linked
-dynamically), the Google Sans font (SIL Open Font License 1.1) and Material Symbols Rounded icons (Apache License
-2.0).
-
-Pixel Music is licensed under the GNU General Public License, version 3 or any later version
-(GPL-3.0-or-later); the text is in [LICENSE](LICENSE). Releases up to and including 0.2.1 were published under the
-MIT License, and the code taken from spotifast and yamusic-md3 keeps its MIT notice in
-[LICENSES/MIT.txt](LICENSES/MIT.txt). Authors, sources and dependency
-licenses are listed in [NOTICE](NOTICE). The "Wave-M" logo is in [`docs/brand/`](docs/brand/).
-
-<br>
-
-<p align="center"><sub>Pixel Music is not affiliated with or endorsed by Spotify AB. Spotify is a trademark of Spotify AB.</sub></p>
+* License: GPL-3.0-or-later.
+* Upstream project: [Rajat-Solankii/PixelMusic-src](https://github.com/Rajat-Solankii/PixelMusic-src).
+* Linux Port & Releases: [Arhetip994/PixelMusic-Linux](https://github.com/Arhetip994/PixelMusic-Linux).

@@ -14,7 +14,6 @@ members = [
 ]
 
 [workspace.package]
-description = "Pixel Music — YouTube Music player on Qt Quick (Material 3 Expressive) and Rust"
 version = "1.0.0-beta"
 edition = "2024"
 rust-version = "1.98"
@@ -44,7 +43,6 @@ tokio-tungstenite = "0.28"
 # данные
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.152"
-chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 jiff = "0.2"
 fastrand = "2.3"
 rand = "0.9"
@@ -115,7 +113,6 @@ cxx = "1.0.204"
 cxx-qt = "0.10.0"
 cxx-qt-lib = { version = "0.10.0", features = ["qt_gui", "qt_qml", "serde"] }
 cxx-qt-build = "0.10.0"
-clap = { version = "4.6", features = ["derive"] }
 
 [patch.crates-io]
 # rustls 0.23 для hyper-proxy2 (librespot-core -> hyper-proxy2)
