@@ -1,0 +1,82 @@
+name: Build macOS (.dmg)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release Version (e.g. 1.0.0-beta)"
+        required: false
+        default: "1.0.0-beta"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: "6.12.0"
+  QT_ADDONS: "qtshadertools qtimageformats"
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  RUST_BACKTRACE: "1"
+  MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+jobs:
+  macos:
+    name: macOS (Apple Silicon + Intel)
+    runs-on: macos-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install 7-Zip
+        run: brew install sevenzip
+
+      - name: Cache Qt
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/macos
+          key: qt-${{ env.QT_VERSION }}-macos-universal-${{ hashFiles('.github/scripts/install_qt.py') }}
+
+      - name: Install Qt ${{ env.QT_VERSION }}
+        run: |
+          read -ra addons <<< "$QT_ADDONS"
+          python3 .github/scripts/install_qt.py --host mac --version "$QT_VERSION" \
+            --addons "${addons[@]}" --out "$RUNNER_TEMP/Qt/$QT_VERSION/macos" --github
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin, aarch64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-universal-qt-${{ env.QT_VERSION }}
+
+      - name: Build Apple Silicon binary (arm64)
+        run: cargo build --locked --release -p pixelmusic --target aarch64-apple-darwin
+
+      - name: Build Intel binary (x86_64)
+        run: cargo build --locked --release -p pixelmusic --target x86_64-apple-darwin
+
+      - name: Package .dmg (x86_64)
+        env:
+          PIXELMUSIC_ARCH: x86_64
+          PIXELMUSIC_EXE: ${{ github.workspace }}/target/x86_64-apple-darwin/release/pixelmusic
+        run: bash .github/scripts/package_macos.sh "${{ inputs.version || '1.0.0-beta' }}"
+
+      - name: Package .dmg (arm64)
+        env:
+          PIXELMUSIC_ARCH: arm64
+          PIXELMUSIC_EXE: ${{ github.workspace }}/target/aarch64-apple-darwin/release/pixelmusic
+        run: bash .github/scripts/package_macos.sh "${{ inputs.version || '1.0.0-beta' }}"
+
+      - name: Upload macOS Artifacts (.dmg)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelMusic-macOS
+          path: target/dist/*.dmg
+          if-no-files-found: error
