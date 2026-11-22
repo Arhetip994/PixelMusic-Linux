@@ -72,9 +72,13 @@ ColumnLayout {
                 anchors.centerIn: parent
                 visible: Devices.loading !== true
                 icon: "refresh"
-                enabled: content.signedIn
+                enabled: true
                 onClicked: Devices.refresh()
             }
+        }
+        IconButton {
+            icon: "close"
+            onClicked: content.closeRequested()
         }
     }
 

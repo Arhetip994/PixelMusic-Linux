@@ -60,18 +60,27 @@ Item {
 
     implicitHeight: 40
     implicitWidth: chip ? chipRow.implicitWidth + (iconOnly ? 20 : 24) : 40
+    width: implicitWidth
+    height: implicitHeight
     Behavior on implicitWidth {
+        enabled: !root._instant
+        NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized }
+    }
+    Behavior on width {
         enabled: !root._instant
         NumberAnimation { duration: Theme.motion.spatialDefault; easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.motion.emphasized }
     }
 
     // ---- Обычная кнопка ----
     IconButton {
+        scheme: PlayerTheme
         anchors.centerIn: parent
         visible: opacity > 0.01
         opacity: root.chip ? 0 : 1
         Behavior on opacity { NumberAnimation { duration: Theme.motion.effectsFast } }
-        icon: "speaker_group"
+        icon: "devices"
+        containerColor: checked ? PlayerTheme.primary : "transparent"
+        iconColor: checked ? PlayerTheme.fgPrimary : Qt.alpha(PlayerTheme.fgPrimaryContainer, 0.75)
         checkable: true
         autoToggle: false
         checked: root.menuOpen
