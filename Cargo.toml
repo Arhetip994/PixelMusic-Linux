@@ -11,6 +11,7 @@ members = [
     "crates/mf-platform",
     "crates/mf-i18n",
     "crates/pixelmusic",
+    "crates/pixelmusic-core",
 ]
 
 [workspace.package]

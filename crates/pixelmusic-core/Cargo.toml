@@ -1,0 +1,19 @@
+[package]
+name = "pixelmusic-core"
+version = "1.0.0-beta"
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni = "0.21"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+rand = { workspace = true }
+mdns-sd = { workspace = true }
+urlencoding = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
