@@ -22,6 +22,8 @@ use crate::context::ctx;
 use crate::models::{DictListModel, ModelKind, to_row, to_rows};
 use crate::qt::{QVariantMap, json_to_qvariantmap};
 
+static LAST_SENT_QUERY: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 #[cxx_qt::bridge]
 pub mod qobject {
     unsafe extern "C++" {
@@ -565,16 +567,6 @@ impl qobject::Player {
         let Some((items, context)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         let Ok(row) = usize::try_from(row) else { return };
         if row < items.len() {
-            if let Some(client) = pixelmusic_core::get_guest_client() {
-                if client.is_connected() {
-                    let track = &items[row];
-                    let query = format!("{} - {}", track.artists, track.title);
-                    ctx().rt.spawn(async move {
-                        let _ = client.send_command("PLAY_QUERY", &query).await;
-                    });
-                    return;
-                }
-            }
             ctx().services.player.play_items(items, row, context);
         }
     }
@@ -582,29 +574,11 @@ impl qobject::Player {
     unsafe fn play_radio_from(self: Pin<&mut Self>, model: *mut cxx_qt::QObject, row: i32) {
         let Some((items, _)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         let Some(track) = usize::try_from(row).ok().and_then(|row| items.into_iter().nth(row)) else { return };
-        if let Some(client) = pixelmusic_core::get_guest_client() {
-            if client.is_connected() {
-                let query = format!("{} - {}", track.artists, track.title);
-                ctx().rt.spawn(async move {
-                    let _ = client.send_command("PLAY_QUERY", &query).await;
-                });
-                return;
-            }
-        }
         ctx().services.wave.play_track_radio(track);
     }
 
     fn play_track_radio(&self, track: &QVariantMap) {
         if let Some(track) = track_from_map(track) {
-            if let Some(client) = pixelmusic_core::get_guest_client() {
-                if client.is_connected() {
-                    let query = format!("{} - {}", track.artists, track.title);
-                    ctx().rt.spawn(async move {
-                        let _ = client.send_command("PLAY_QUERY", &query).await;
-                    });
-                    return;
-                }
-            }
             ctx().services.wave.play_track_radio(track);
         }
     }
@@ -613,16 +587,6 @@ impl qobject::Player {
         let Some((items, context)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         if items.is_empty() {
             return;
-        }
-        if let Some(client) = pixelmusic_core::get_guest_client() {
-            if client.is_connected() {
-                let track = &items[0];
-                let query = format!("{} - {}", track.artists, track.title);
-                ctx().rt.spawn(async move {
-                    let _ = client.send_command("PLAY_QUERY", &query).await;
-                });
-                return;
-            }
         }
         if !self.shuffle {
             let mut this = self.as_mut().rust_mut();
@@ -688,27 +652,11 @@ impl qobject::Player {
     }
 
     fn next(&self) {
-        if let Some(client) = pixelmusic_core::get_guest_client() {
-            if client.is_connected() {
-                ctx().rt.spawn(async move {
-                    let _ = client.send_command("NEXT", "").await;
-                });
-                return;
-            }
-        }
         ctx().services.player.next();
     }
 
     /// После 3 с — в начало трека, иначе предыдущий.
     fn previous(&self) {
-        if let Some(client) = pixelmusic_core::get_guest_client() {
-            if client.is_connected() {
-                ctx().rt.spawn(async move {
-                    let _ = client.send_command("PREV", "").await;
-                });
-                return;
-            }
-        }
         ctx().services.player.previous();
     }
 
@@ -845,16 +793,6 @@ impl qobject::Player {
         if let Ok(index) = usize::try_from(index)
             && index < items.len()
         {
-            if let Some(client) = pixelmusic_core::get_guest_client() {
-                if client.is_connected() {
-                    let track = &items[index];
-                    let query = format!("{} - {}", track.artists, track.title);
-                    ctx().rt.spawn(async move {
-                        let _ = client.send_command("PLAY_QUERY", &query).await;
-                    });
-                    return;
-                }
-            }
             ctx().services.player.play_items(items, index, PlayContext::new(md3_model::contexts::TRACKS));
         }
     }
@@ -934,6 +872,26 @@ impl qobject::Player {
         // перестраиваются QString'ы и QMap'ы. Структурные события (трек, состояние,
         // очередь, устройство) редки — им остаётся полный sync().
         let snapshot = ctx().services.player.snapshot();
+
+        if matches!(delivery, Delivery::Event(PlayerEvent::TrackChanged)) {
+            if let Some(client) = pixelmusic_core::get_guest_client() {
+                if client.is_connected() {
+                    ctx().services.player.pause();
+                    if let Some(tr) = &snapshot.track {
+                        let query = format!("{} - {}", tr.artists, tr.title);
+                        let mut last = LAST_SENT_QUERY.lock().unwrap();
+                        if last.as_deref() != Some(&query) {
+                            *last = Some(query.clone());
+                            let client_clone = client.clone();
+                            ctx().rt.spawn(async move {
+                                let _ = client_clone.send_command("PLAY_QUERY", &query).await;
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         match delivery {
             Delivery::Event(PlayerEvent::LevelChanged) => self.as_mut().sync_level(&snapshot),
             Delivery::Event(PlayerEvent::PositionChanged) => self.as_mut().sync_position(&snapshot),
@@ -953,7 +911,10 @@ impl qobject::Player {
         if pixelmusic_core::is_guest_connected() {
             if let Some(client) = pixelmusic_core::get_guest_client() {
                 let pb = client.get_playback();
-                self.sync_from_remote(&pb);
+                self.as_mut().sync_from_remote(&pb);
+                self.as_mut().sync_queue(s);
+                self.as_mut().sync_queue_index(s);
+                self.as_mut().sync_queue_sections(s);
                 return;
             }
         }
@@ -1233,12 +1194,28 @@ impl cxx_qt::Initialize for qobject::Player {
             let mut last_title = String::new();
             let mut last_pos = 0i64;
             let mut last_playing = false;
+            let mut song_ended_triggered = false;
             loop {
                 tokio::time::sleep(Duration::from_millis(300)).await;
                 if let Some(client) = pixelmusic_core::get_guest_client() {
                     if client.is_connected() {
                         was_connected = true;
                         let pb = client.get_playback();
+
+                        let is_near_end = pb.duration_ms > 0
+                            && pb.position_ms > 0
+                            && (pb.duration_ms - pb.position_ms).abs() <= 1500;
+                        let stopped_at_end = !pb.is_playing
+                            && pb.duration_ms > 0
+                            && pb.position_ms >= pb.duration_ms - 3000;
+
+                        if (is_near_end || stopped_at_end) && !song_ended_triggered {
+                            song_ended_triggered = true;
+                            ctx().services.player.next();
+                        } else if pb.position_ms < 5000 {
+                            song_ended_triggered = false;
+                        }
+
                         let changed = pb.title != last_title
                             || (pb.position_ms - last_pos).abs() >= 1000
                             || pb.is_playing != last_playing;
@@ -1259,6 +1236,7 @@ impl cxx_qt::Initialize for qobject::Player {
                     last_title.clear();
                     last_pos = 0;
                     last_playing = false;
+                    song_ended_triggered = false;
                     let _ = thread.queue(move |mut player| {
                         let snap = ctx().services.player.snapshot();
                         player.as_mut().sync(&snap, true);
