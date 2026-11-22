@@ -9,7 +9,7 @@ import PixelMusic.Core
 Surface {
     id: root
 
-    readonly property string tab: Settings.rightPanelTab === "lyrics" ? "lyrics" : "queue"
+    readonly property string tab: Settings.rightPanelTab === "devices" ? "devices" : Settings.rightPanelTab === "lyrics" ? "lyrics" : "queue"
 
     level: "container"
     translucency: Settings.ambientBackground && Player.cover !== "" ? 0.3 : 0
@@ -20,6 +20,13 @@ Surface {
         anchors.rightMargin: 14
         anchors.topMargin: 10
         visible: root.tab === "queue"
+    }
+
+    DevicePanel {
+        anchors.fill: parent
+        anchors.margins: 14
+        visible: root.tab === "devices"
+        shown: root.tab === "devices" && Settings.rightPanelOpen
     }
 
     ColumnLayout {

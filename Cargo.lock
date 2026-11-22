@@ -4091,6 +4091,7 @@ dependencies = [
  "mf-i18n",
  "mf-lyrics",
  "mf-platform",
+ "pixelmusic-core",
  "rand 0.9.5",
  "regex",
  "reqwest",

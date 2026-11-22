@@ -12,8 +12,8 @@ ColumnLayout {
     property bool touch: false          // лист: действия видны кнопками, наведения нет
     signal closeRequested()
 
-    readonly property bool signedIn: Auth.state === "signedIn"
-    readonly property bool free: signedIn && Auth.premium !== true
+    readonly property bool signedIn: true
+    readonly property bool free: false
     readonly property var active: Devices.active ?? {}
     readonly property bool hasActive: (active.id ?? "") !== ""
     readonly property string movingTo: Devices.transferringTo ?? ""
@@ -121,8 +121,7 @@ ColumnLayout {
         Label {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: emptyBox.looking ? I18n.t("Looking for devices…")
-                : content.signedIn ? I18n.t("No active devices") : I18n.t("Sign in to your account")
+            text: emptyBox.looking ? I18n.t("Looking for devices…") : I18n.t("No active devices")
             type: "titleSmall"
         }
         Label {
@@ -131,9 +130,7 @@ ColumnLayout {
             Layout.leftMargin: 12
             Layout.rightMargin: 12
             horizontalAlignment: Text.AlignHCenter
-            text: content.signedIn
-                  ? I18n.t("Open Spotify on a phone or speaker and it will show up here. Or start playing music on this computer.")
-                  : I18n.t("Spotify Connect devices will appear here after you sign in.")
+            text: I18n.t("Open PixelMusic on TV or mobile on the same Wi-Fi network and it will show up here.")
             type: "bodySmall"
             color: Theme.fgSurfaceVariant
             wrapMode: Text.WordWrap

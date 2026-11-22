@@ -463,6 +463,8 @@ Item {
                 }
             }
         } }
+        // Устройства PixelMusic Connect
+        Fold { DeviceButton { iconOnly: root.compact || !root.roomForDeviceName } }
         Fold { shown: root.roomForVolume && !root.compact; Row {
             id: volumeRow
             // громкость играющего устройства; у части устройств её меняют только на них самих

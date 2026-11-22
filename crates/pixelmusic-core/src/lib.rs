@@ -31,8 +31,16 @@ pub fn get_runtime() -> &'static Runtime {
     })
 }
 
-fn get_discovery() -> &'static DiscoveryManager {
+pub fn get_discovery() -> &'static DiscoveryManager {
     DISCOVERY_MGR.get_or_init(DiscoveryManager::new)
+}
+
+pub fn start_discovery() -> bool {
+    get_discovery().start()
+}
+
+pub fn get_discovered_devices() -> Vec<crate::protocol::DiscoveredDevice> {
+    get_discovery().get_devices()
 }
 
 fn jstring_to_string(env: &mut JNIEnv, j_str: &JString) -> String {

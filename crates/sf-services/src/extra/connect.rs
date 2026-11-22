@@ -34,10 +34,17 @@ pub fn receiver_row_id(receiver: &Receiver) -> String {
 }
 
 pub fn receiver_item(receiver: &Receiver) -> DeviceItem {
+    let kind = if receiver.name.to_lowercase().contains("tv")
+        || receiver.device_id.as_deref().is_some_and(|id| id.contains("tv") || id.starts_with("pmconnect:"))
+    {
+        "tv".into()
+    } else {
+        "speaker".into()
+    };
     DeviceItem {
         id: receiver_row_id(receiver),
         name: receiver.name.clone(),
-        kind: "speaker".into(),
+        kind,
         volume: -1,
         source: SOURCE_ZEROCONF.into(),
         ..Default::default()

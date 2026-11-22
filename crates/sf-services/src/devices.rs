@@ -97,21 +97,18 @@ impl DevicesService {
             state: Mutex::new(State::default()),
             me: me.clone(),
         });
+        pixelmusic_core::start_discovery();
         rt.spawn(listen(Arc::downgrade(&service)));
         service
     }
 
-    /// Запросить список (Web API + mDNS); вызывается при открытии меню и по refresh.
+    /// Запросить список (Web API + mDNS + PixelMusic UDP); вызывается при открытии меню и по refresh.
     pub fn refresh(&self) {
-        if !self.auth.is_signed_in() {
-            lock(&self.state).error_text = ServiceError::NotSignedIn.to_string();
-            self.recompute();
-            return;
-        }
+        let is_signed_in = self.auth.is_signed_in();
         let (fetch_api, discover, generation) = {
             let mut st = lock(&self.state);
             let fresh = st.fetched_at.is_some_and(|at| at.elapsed() < DEVICES_FRESH);
-            let fetch_api = !fresh && !st.api_in_flight;
+            let fetch_api = is_signed_in && !fresh && !st.api_in_flight;
             let discover = !fresh && !st.discover_in_flight;
             st.api_in_flight |= fetch_api;
             st.discover_in_flight |= discover;
@@ -144,30 +141,48 @@ impl DevicesService {
         }
         if discover {
             self.rt.spawn(async move {
+                pixelmusic_core::start_discovery();
+                let mut pm_receivers = Vec::new();
+                for d in pixelmusic_core::get_discovered_devices() {
+                    let addr = d.ip.parse().unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+                    pm_receivers.push(Receiver {
+                        name: d.name,
+                        device_id: Some(format!("pmconnect:{}:{}", d.ip, d.port)),
+                        address: addr,
+                        port: d.port,
+                        path: "/".into(),
+                    });
+                }
+
                 let found = tokio::task::spawn_blocking(|| {
                     zeroconf::discover(DISCOVER_TIMEOUT).and_then(zeroconf::resolve_receivers)
                 })
                 .await;
-                let receivers = match found {
-                    Ok(Ok(receivers)) => Some(receivers),
+                let mut receivers = match found {
+                    Ok(Ok(receivers)) => receivers,
                     Ok(Err(e)) => {
                         tracing::debug!("no receivers found on the network: {e:#}");
-                        None
+                        Vec::new()
                     }
                     Err(e) => {
                         tracing::warn!("receiver discovery failed: {e}");
-                        None
+                        Vec::new()
                     }
                 };
+
+                for r in pm_receivers {
+                    if !receivers.iter().any(|existing| existing.name == r.name) {
+                        receivers.push(r);
+                    }
+                }
+
                 {
                     let mut st = lock(&me.state);
                     if st.account_generation != generation {
                         return;
                     }
                     st.discover_in_flight = false;
-                    if let Some(receivers) = receivers {
-                        st.receivers = receivers;
-                    }
+                    st.receivers = receivers;
                 }
                 me.recompute();
             });
@@ -255,13 +270,49 @@ impl DevicesService {
         });
     }
 
-    /// Подключить приёмник из локальной сети по имени (zeroconf addUser), затем перенести.
+    /// Подключить приёмник из локальной сети по имени (zeroconf addUser или PixelMusic Connect), затем перенести.
     pub fn activate_receiver(&self, name: String) {
         let receiver = lock(&self.state).receivers.iter().find(|r| r.name == name).cloned();
         let Some(receiver) = receiver else {
             self.notice(mf_i18n::tf("“{0}” is no longer visible on the network", &[&name]));
             return;
         };
+
+        if let Some(dev_id) = receiver.device_id.as_deref().filter(|id| id.starts_with("pmconnect:")) {
+            let parts: Vec<&str> = dev_id.strip_prefix("pmconnect:").unwrap_or("").split(':').collect();
+            if parts.len() == 2 {
+                let ip = parts[0].to_string();
+                let port: u16 = parts[1].parse().unwrap_or(58246);
+                let our_name = DevicesService::default_device_name();
+                let player = self.player.clone();
+                let me_weak = self.me.clone();
+                let name_clone = name.clone();
+                self.rt.spawn(async move {
+                    match pixelmusic_core::guest::GuestClient::connect(&ip, port, &our_name, "desktop").await {
+                        Ok(client) => {
+                            let snap = player.snapshot();
+                            if let Some(tr) = snap.track {
+                                let query = format!("{} - {}", tr.artists, tr.title);
+                                let _ = client.send_command("PLAY_QUERY", &query).await;
+                            } else {
+                                let _ = client.send_command("PLAY", "").await;
+                            }
+                            if let Some(me) = me_weak.upgrade() {
+                                me.notice(format!("Connected to {name_clone}"));
+                                me.recompute();
+                            }
+                        }
+                        Err(e) => {
+                            if let Some(me) = me_weak.upgrade() {
+                                me.notice(format!("Connection to {name_clone} failed: {e}"));
+                            }
+                        }
+                    }
+                });
+            }
+            return;
+        }
+
         let Some(session) = self.player.session() else {
             self.notice(mf_i18n::t(NEED_PLAYBACK));
             return;

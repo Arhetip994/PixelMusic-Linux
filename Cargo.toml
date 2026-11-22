@@ -22,6 +22,7 @@ license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
 # внутренние
+pixelmusic-core = { path = "crates/pixelmusic-core" }
 md3-model = { path = "crates/md3-model" }
 sf-auth = { path = "crates/sf-auth" }
 sf-api = { path = "crates/sf-api" }

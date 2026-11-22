@@ -219,6 +219,7 @@ Item {
             spacing: 12
             IconButton { scheme: PlayerTheme; icon: "keyboard_arrow_down"; style: "accentGlass"; onClicked: root.hide() }
             Item { Layout.fillWidth: true }
+            DeviceButton { iconOnly: root.layoutCompact }
             // lyrics search and options, on the tab switcher's line while the lyrics are shown
             LyricsTools {
                 id: lyricsTools
