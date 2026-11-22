@@ -565,6 +565,16 @@ impl qobject::Player {
         let Some((items, context)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         let Ok(row) = usize::try_from(row) else { return };
         if row < items.len() {
+            if let Some(client) = pixelmusic_core::get_guest_client() {
+                if client.is_connected() {
+                    let track = &items[row];
+                    let query = format!("{} - {}", track.artists, track.title);
+                    ctx().rt.spawn(async move {
+                        let _ = client.send_command("PLAY_QUERY", &query).await;
+                    });
+                    return;
+                }
+            }
             ctx().services.player.play_items(items, row, context);
         }
     }
@@ -572,11 +582,29 @@ impl qobject::Player {
     unsafe fn play_radio_from(self: Pin<&mut Self>, model: *mut cxx_qt::QObject, row: i32) {
         let Some((items, _)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         let Some(track) = usize::try_from(row).ok().and_then(|row| items.into_iter().nth(row)) else { return };
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                let query = format!("{} - {}", track.artists, track.title);
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PLAY_QUERY", &query).await;
+                });
+                return;
+            }
+        }
         ctx().services.wave.play_track_radio(track);
     }
 
     fn play_track_radio(&self, track: &QVariantMap) {
         if let Some(track) = track_from_map(track) {
+            if let Some(client) = pixelmusic_core::get_guest_client() {
+                if client.is_connected() {
+                    let query = format!("{} - {}", track.artists, track.title);
+                    ctx().rt.spawn(async move {
+                        let _ = client.send_command("PLAY_QUERY", &query).await;
+                    });
+                    return;
+                }
+            }
             ctx().services.wave.play_track_radio(track);
         }
     }
@@ -585,6 +613,16 @@ impl qobject::Player {
         let Some((items, context)) = (unsafe { crate::models::tracks_from_model(model) }) else { return };
         if items.is_empty() {
             return;
+        }
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                let track = &items[0];
+                let query = format!("{} - {}", track.artists, track.title);
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PLAY_QUERY", &query).await;
+                });
+                return;
+            }
         }
         if !self.shuffle {
             let mut this = self.as_mut().rust_mut();
@@ -602,27 +640,75 @@ impl qobject::Player {
     }
 
     fn toggle_play(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("TOGGLE", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.toggle_play();
     }
 
     fn play(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PLAY", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.play();
     }
 
     fn pause(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PAUSE", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.pause();
     }
 
     fn stop(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PAUSE", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.stop();
     }
 
     fn next(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("NEXT", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.next();
     }
 
     /// После 3 с — в начало трека, иначе предыдущий.
     fn previous(&self) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("PREV", "").await;
+                });
+                return;
+            }
+        }
         ctx().services.player.previous();
     }
 
@@ -634,6 +720,20 @@ impl qobject::Player {
     }
 
     fn seek_ms(mut self: Pin<&mut Self>, ms: i32) {
+        if let Some(client) = pixelmusic_core::get_guest_client() {
+            if client.is_connected() {
+                let ms = ms.max(0);
+                let mut this = self.as_mut().rust_mut();
+                this.position_ms = ms;
+                this.position = fraction(ms, this.duration_ms);
+                this.position_set_at = Some(Instant::now());
+                self.as_mut().position_changed();
+                ctx().rt.spawn(async move {
+                    let _ = client.send_command("SEEK", &ms.to_string()).await;
+                });
+                return;
+            }
+        }
         if !self.has_track {
             return;
         }
@@ -745,6 +845,16 @@ impl qobject::Player {
         if let Ok(index) = usize::try_from(index)
             && index < items.len()
         {
+            if let Some(client) = pixelmusic_core::get_guest_client() {
+                if client.is_connected() {
+                    let track = &items[index];
+                    let query = format!("{} - {}", track.artists, track.title);
+                    ctx().rt.spawn(async move {
+                        let _ = client.send_command("PLAY_QUERY", &query).await;
+                    });
+                    return;
+                }
+            }
             ctx().services.player.play_items(items, index, PlayContext::new(md3_model::contexts::TRACKS));
         }
     }
@@ -840,6 +950,13 @@ impl qobject::Player {
 
     /// Полная сверка со снимком — для структурных (редких) событий и после пропуска событий.
     fn sync(mut self: Pin<&mut Self>, s: &PlayerSnapshot, force_track: bool) {
+        if pixelmusic_core::is_guest_connected() {
+            if let Some(client) = pixelmusic_core::get_guest_client() {
+                let pb = client.get_playback();
+                self.sync_from_remote(&pb);
+                return;
+            }
+        }
         self.as_mut().sync_queue(s);
         self.as_mut().sync_track(s, force_track);
         self.as_mut().sync_playback(s);
@@ -1054,6 +1171,52 @@ impl qobject::Player {
             self.level_changed();
         }
     }
+
+    fn sync_from_remote(mut self: Pin<&mut Self>, pb: &pixelmusic_core::protocol::JamPlayback) {
+        if !pixelmusic_core::is_guest_connected() {
+            return;
+        }
+        let (track_changed, playing_changed, pos_changed) = {
+            let mut this = self.as_mut().rust_mut();
+            let track_changed = this.title != QString::from(pb.title.as_str());
+            let playing_changed = this.playing != pb.is_playing;
+            let pos_changed = (this.position_ms - pb.position_ms as i32).abs() >= 1000;
+
+            this.remote = true;
+            this.is_local = false;
+            this.has_track = !pb.title.is_empty();
+            this.title = QString::from(pb.title.as_str());
+            this.artist = QString::from(pb.artist.as_str());
+            this.album = QString::default();
+            this.cover = QString::from(pb.artwork_url.as_str());
+            this.cover_large = QString::from(pb.artwork_url.as_str());
+            this.duration_ms = pb.duration_ms as i32;
+            this.position_ms = pb.position_ms as i32;
+            this.position = fraction(this.position_ms, this.duration_ms);
+            this.playing = pb.is_playing;
+            this.can_control = true;
+            this.can_set_volume = true;
+
+            let mut dev_map = QVariantMap::default();
+            dev_map.insert(QString::from("name"), QVariant::from(&QString::from("PixelMusic TV")));
+            dev_map.insert(QString::from("type"), QVariant::from(&QString::from("tv")));
+            dev_map.insert(QString::from("isActive"), QVariant::from(&true));
+            this.device = dev_map;
+
+            (track_changed, playing_changed, pos_changed)
+        };
+
+        if track_changed {
+            self.as_mut().track_changed();
+        }
+        if playing_changed {
+            self.as_mut().state_changed();
+        }
+        if pos_changed {
+            self.as_mut().position_changed();
+        }
+        self.as_mut().device_changed();
+    }
 }
 
 impl cxx_qt::Initialize for qobject::Player {
@@ -1063,5 +1226,45 @@ impl cxx_qt::Initialize for qobject::Player {
         let snapshot = player.snapshot();
         self.as_mut().sync(&snapshot, false);
         forward_events(self.qt_thread(), subscription.events, Self::on_event);
+
+        let thread = self.qt_thread();
+        ctx().rt.spawn(async move {
+            let mut was_connected = false;
+            let mut last_title = String::new();
+            let mut last_pos = 0i64;
+            let mut last_playing = false;
+            loop {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                if let Some(client) = pixelmusic_core::get_guest_client() {
+                    if client.is_connected() {
+                        was_connected = true;
+                        let pb = client.get_playback();
+                        let changed = pb.title != last_title
+                            || (pb.position_ms - last_pos).abs() >= 1000
+                            || pb.is_playing != last_playing;
+                        if changed {
+                            last_title = pb.title.clone();
+                            last_pos = pb.position_ms;
+                            last_playing = pb.is_playing;
+                            let pb_clone = pb.clone();
+                            let _ = thread.queue(move |player| {
+                                player.sync_from_remote(&pb_clone);
+                            });
+                        }
+                        continue;
+                    }
+                }
+                if was_connected {
+                    was_connected = false;
+                    last_title.clear();
+                    last_pos = 0;
+                    last_playing = false;
+                    let _ = thread.queue(move |mut player| {
+                        let snap = ctx().services.player.snapshot();
+                        player.as_mut().sync(&snap, true);
+                    });
+                }
+            }
+        });
     }
 }

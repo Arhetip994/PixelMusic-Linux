@@ -43,6 +43,38 @@ pub fn get_discovered_devices() -> Vec<crate::protocol::DiscoveredDevice> {
     get_discovery().get_devices()
 }
 
+pub fn connect_guest(ip: &str, port: u16, guest_name: &str, device_type: &str) -> anyhow::Result<Arc<GuestClient>> {
+    let rt = get_runtime();
+    let client = rt.block_on(async {
+        GuestClient::connect(ip, port, guest_name, device_type).await
+    })?;
+    let mut guard = GUEST_CLIENT.write().unwrap();
+    if let Some(old) = guard.take() {
+        old.disconnect();
+    }
+    *guard = Some(client.clone());
+    Ok(client)
+}
+
+pub fn get_guest_client() -> Option<Arc<GuestClient>> {
+    GUEST_CLIENT.read().unwrap().clone()
+}
+
+pub fn disconnect_guest() {
+    let mut guard = GUEST_CLIENT.write().unwrap();
+    if let Some(client) = guard.take() {
+        client.disconnect();
+    }
+}
+
+pub fn is_guest_connected() -> bool {
+    if let Some(client) = GUEST_CLIENT.read().unwrap().as_ref() {
+        client.is_connected()
+    } else {
+        false
+    }
+}
+
 fn jstring_to_string(env: &mut JNIEnv, j_str: &JString) -> String {
     if j_str.is_null() {
         return String::new();

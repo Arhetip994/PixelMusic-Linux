@@ -17,6 +17,7 @@ md3-model.workspace = true
 sf-api.workspace = true
 sf-player.workspace = true
 sf-services.workspace = true
+pixelmusic-core.workspace = true
 mf-theme.workspace = true
 mf-lyrics.workspace = true
 mf-platform.workspace = true

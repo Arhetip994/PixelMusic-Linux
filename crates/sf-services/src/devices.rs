@@ -59,6 +59,7 @@ pub enum DevicesEvent {
 struct State {
     api: Vec<DeviceItem>,
     receivers: Vec<Receiver>,
+    active_pm_device: Option<Receiver>,
     fetched_at: Option<Instant>,
     api_in_flight: bool,
     discover_in_flight: bool,
@@ -191,6 +192,14 @@ impl DevicesService {
 
     /// Перенести воспроизведение на устройство (id этого ПК → transfer_here).
     pub fn transfer(&self, device_id: String, play: bool) {
+        let is_this = self.player.this_device_id().as_deref() == Some(device_id.as_str());
+        if is_this {
+            let mut st = lock(&self.state);
+            if st.active_pm_device.is_some() {
+                st.active_pm_device = None;
+                pixelmusic_core::disconnect_guest();
+            }
+        }
         let row = self.snapshot().devices.iter().find(|d| d.id == device_id).cloned();
         if let Some(row) = row.filter(|d| d.source == SOURCE_ZEROCONF) {
             self.activate_receiver(row.name);
@@ -202,7 +211,7 @@ impl DevicesService {
             // после переноса флаги is_active в кэше Web API устарели
             st.fetched_at = None;
         }
-        if self.player.this_device_id().as_deref() == Some(device_id.as_str()) {
+        if is_this {
             self.player.transfer_here(play);
         } else {
             self.player.transfer_to(device_id, play);
@@ -211,6 +220,14 @@ impl DevicesService {
     }
 
     pub fn transfer_here(&self) {
+        {
+            let mut st = lock(&self.state);
+            if st.active_pm_device.is_some() {
+                st.active_pm_device = None;
+                pixelmusic_core::disconnect_guest();
+            }
+        }
+        self.recompute();
         let Some(id) = self.player.this_device_id() else {
             self.player.transfer_here(true);
             return;
@@ -287,8 +304,17 @@ impl DevicesService {
                 let player = self.player.clone();
                 let me_weak = self.me.clone();
                 let name_clone = name.clone();
+                let receiver_clone = receiver.clone();
+                let dev_id_clone = dev_id.to_string();
+
+                {
+                    let mut st = lock(&self.state);
+                    st.activating = Some(dev_id_clone);
+                }
+                self.recompute();
+
                 self.rt.spawn(async move {
-                    match pixelmusic_core::guest::GuestClient::connect(&ip, port, &our_name, "desktop").await {
+                    match pixelmusic_core::connect_guest(&ip, port, &our_name, "desktop") {
                         Ok(client) => {
                             let snap = player.snapshot();
                             if let Some(tr) = snap.track {
@@ -297,14 +323,42 @@ impl DevicesService {
                             } else {
                                 let _ = client.send_command("PLAY", "").await;
                             }
+                            player.pause();
+
                             if let Some(me) = me_weak.upgrade() {
+                                {
+                                    let mut st = lock(&me.state);
+                                    st.activating = None;
+                                    st.active_pm_device = Some(receiver_clone);
+                                }
                                 me.notice(format!("Connected to {name_clone}"));
                                 me.recompute();
+
+                                let me_watch = me.clone();
+                                let watch_client = client.clone();
+                                me.rt.spawn(async move {
+                                    while watch_client.is_connected() {
+                                        tokio::time::sleep(Duration::from_millis(1000)).await;
+                                    }
+                                    {
+                                        let mut st = lock(&me_watch.state);
+                                        if st.active_pm_device.as_ref().map(|r| r.name.as_str()) == Some(&name_clone) {
+                                            st.active_pm_device = None;
+                                        }
+                                    }
+                                    me_watch.recompute();
+                                });
                             }
                         }
                         Err(e) => {
                             if let Some(me) = me_weak.upgrade() {
+                                {
+                                    let mut st = lock(&me.state);
+                                    st.activating = None;
+                                    st.active_pm_device = None;
+                                }
                                 me.notice(format!("Connection to {name_clone} failed: {e}"));
+                                me.recompute();
                             }
                         }
                     }
@@ -480,10 +534,14 @@ impl DevicesService {
         let this_name = if this_id.is_empty() { String::new() } else { self.device_name() };
         let mut st = lock(&self.state);
         st.volumes.retain(|_, (_, at)| at.elapsed() < VOLUME_HOLD);
-        let active_id = match &p.device {
-            Some(d) => d.id.clone(),
-            None if p.is_local && p.has_track() => this_id.clone(),
-            None => String::new(),
+        let active_id = if let Some(pm) = &st.active_pm_device {
+            pm.device_id.clone().unwrap_or_default()
+        } else {
+            match &p.device {
+                Some(d) => d.id.clone(),
+                None if p.is_local && p.has_track() => this_id.clone(),
+                None => String::new(),
+            }
         };
         let this = (!this_id.is_empty()).then(|| ThisDevice {
             id: this_id.clone(),
@@ -499,7 +557,13 @@ impl DevicesService {
                 d.volume = *volume;
             }
         }
-        let active = devices.iter().find(|d| d.is_active).cloned().or_else(|| p.device.clone());
+        let active = if let Some(pm) = &st.active_pm_device {
+            devices.iter().find(|d| d.id == active_id).cloned().or_else(|| {
+                Some(connect::receiver_item(pm))
+            })
+        } else {
+            devices.iter().find(|d| d.is_active).cloned().or_else(|| p.device.clone())
+        };
         let transferring_to = match &st.activating {
             Some(row) => row.clone(),
             None if p.transferring => st.transfer_target.clone(),

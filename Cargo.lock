@@ -3130,6 +3130,7 @@ dependencies = [
  "mf-lyrics",
  "mf-platform",
  "mf-theme",
+ "pixelmusic-core",
  "serde",
  "serde_json",
  "sf-api",

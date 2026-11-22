@@ -93,6 +93,7 @@ impl DiscoveryManager {
     }
 }
 
+use std::sync::atomic::{AtomicBool, Ordering};
 pub struct GuestClient {
     target_addr: SocketAddr,
     #[allow(dead_code)]
@@ -100,6 +101,7 @@ pub struct GuestClient {
     #[allow(dead_code)]
     device_type: String,
     playback: Arc<RwLock<JamPlayback>>,
+    connected: Arc<AtomicBool>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
 }
 
@@ -120,11 +122,13 @@ impl GuestClient {
             .unwrap_or_default();
 
         let playback = Arc::new(RwLock::new(playback_init));
+        let connected = Arc::new(AtomicBool::new(true));
         let client = Arc::new(Self {
             target_addr,
             guest_name: guest_name.to_string(),
             device_type: device_type.to_string(),
             playback: playback.clone(),
+            connected: connected.clone(),
             tasks: Mutex::new(Vec::new()),
         });
 
@@ -132,10 +136,13 @@ impl GuestClient {
         let poll_client = client.clone();
         let sync_task = crate::get_runtime().spawn(async move {
             let mut since = 0u64;
+            let mut consecutive_errors = 0;
             loop {
                 let path = format!("/sync?since={since}");
-                if let Ok((status, body)) = send_request(poll_client.target_addr, "GET", &path, "", Duration::from_secs(5)).await {
-                    if status == 200 {
+                match send_request(poll_client.target_addr, "GET", &path, "", Duration::from_secs(5)).await {
+                    Ok((status, body)) if status == 200 => {
+                        consecutive_errors = 0;
+                        poll_client.connected.store(true, Ordering::Relaxed);
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body) {
                             if let Some(v_num) = v.get("version").and_then(|val| val.as_u64()) {
                                 since = v_num;
@@ -145,6 +152,12 @@ impl GuestClient {
                                     *poll_client.playback.write().unwrap() = new_pb;
                                 }
                             }
+                        }
+                    }
+                    _ => {
+                        consecutive_errors += 1;
+                        if consecutive_errors > 4 {
+                            poll_client.connected.store(false, Ordering::Relaxed);
                         }
                     }
                 }
@@ -157,9 +170,18 @@ impl GuestClient {
     }
 
     pub async fn send_command(&self, action: &str, value: &str) -> anyhow::Result<()> {
+        let real_action = if action.eq_ignore_ascii_case("TOGGLE") || action.eq_ignore_ascii_case("PLAY_PAUSE") {
+            if self.playback.read().unwrap().is_playing {
+                "PAUSE"
+            } else {
+                "PLAY"
+            }
+        } else {
+            action
+        };
         let path = format!(
             "/control?action={}&value={}",
-            urlencoding::encode(action),
+            urlencoding::encode(real_action),
             urlencoding::encode(value)
         );
         let (status, _) = send_request(self.target_addr, "POST", &path, "", Duration::from_secs(3)).await?;
@@ -173,7 +195,12 @@ impl GuestClient {
         self.playback.read().unwrap().clone()
     }
 
+    pub fn is_connected(&self) -> bool {
+        self.connected.load(Ordering::Relaxed)
+    }
+
     pub fn disconnect(&self) {
+        self.connected.store(false, Ordering::Relaxed);
         let mut tasks = self.tasks.lock().unwrap();
         for t in tasks.drain(..) {
             t.abort();
