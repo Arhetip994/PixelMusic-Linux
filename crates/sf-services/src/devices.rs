@@ -314,7 +314,7 @@ impl DevicesService {
                 self.recompute();
 
                 self.rt.spawn(async move {
-                    match pixelmusic_core::connect_guest(&ip, port, &our_name, "desktop") {
+                    match pixelmusic_core::connect_guest_async(&ip, port, &our_name, "desktop").await {
                         Ok(client) => {
                             let snap = player.snapshot();
                             if let Some(tr) = snap.track {

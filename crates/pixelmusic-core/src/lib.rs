@@ -43,17 +43,19 @@ pub fn get_discovered_devices() -> Vec<crate::protocol::DiscoveredDevice> {
     get_discovery().get_devices()
 }
 
-pub fn connect_guest(ip: &str, port: u16, guest_name: &str, device_type: &str) -> anyhow::Result<Arc<GuestClient>> {
-    let rt = get_runtime();
-    let client = rt.block_on(async {
-        GuestClient::connect(ip, port, guest_name, device_type).await
-    })?;
+pub async fn connect_guest_async(ip: &str, port: u16, guest_name: &str, device_type: &str) -> anyhow::Result<Arc<GuestClient>> {
+    let client = GuestClient::connect(ip, port, guest_name, device_type).await?;
     let mut guard = GUEST_CLIENT.write().unwrap();
     if let Some(old) = guard.take() {
         old.disconnect();
     }
     *guard = Some(client.clone());
     Ok(client)
+}
+
+pub fn connect_guest(ip: &str, port: u16, guest_name: &str, device_type: &str) -> anyhow::Result<Arc<GuestClient>> {
+    let rt = get_runtime();
+    rt.block_on(connect_guest_async(ip, port, guest_name, device_type))
 }
 
 pub fn get_guest_client() -> Option<Arc<GuestClient>> {
