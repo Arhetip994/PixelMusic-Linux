@@ -22,7 +22,11 @@ pub struct HostSession {
 
 impl HostSession {
     pub async fn start(host_name: String, requested_port: u16) -> anyhow::Result<Arc<Self>> {
-        let listener = TcpListener::bind(("0.0.0.0", requested_port)).await?;
+        let bind_port = if requested_port == 0 { 58246 } else { requested_port };
+        let listener = match TcpListener::bind(("0.0.0.0", bind_port)).await {
+            Ok(l) => l,
+            Err(_) => TcpListener::bind(("0.0.0.0", 0)).await?,
+        };
         let port = listener.local_addr()?.port();
         let room_id = format!("{:06X}", rand::random::<u32>() & 0xFFFFFF);
 
@@ -60,9 +64,15 @@ impl HostSession {
                     }
                 };
 
-                let target = SocketAddr::from(([255, 255, 255, 255], BEACON_PORT));
+                let targets = [
+                    SocketAddr::from(([255, 255, 255, 255], BEACON_PORT)),
+                    SocketAddr::from(([10, 0, 2, 2], BEACON_PORT)), // Android emulator host gateway
+                    SocketAddr::from(([127, 0, 0, 1], BEACON_PORT)),
+                ];
                 loop {
-                    let _ = socket.send_to(&payload, target).await;
+                    for target in &targets {
+                        let _ = socket.send_to(&payload, *target).await;
+                    }
                     tokio::time::sleep(Duration::from_secs(3)).await;
                 }
             })

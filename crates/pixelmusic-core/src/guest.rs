@@ -48,7 +48,11 @@ impl DiscoveryManager {
                 match socket.recv_from(&mut buf).await {
                     Ok((n, sender)) => {
                         if let Some(beacon) = Beacon::from_bytes(&buf[..n]) {
-                            let ip = sender.ip().to_string();
+                            let ip = if sender.ip().is_loopback() || sender.ip().to_string() == "10.0.2.2" {
+                                "127.0.0.1".to_string()
+                            } else {
+                                sender.ip().to_string()
+                            };
                             let key = format!("{}:{}", ip, beacon.port);
                             let dev = DiscoveredDevice {
                                 name: beacon.host_name,
